@@ -29,20 +29,21 @@ button.s{background:var(--bd);color:var(--tx)}button.r{background:#dc2626}button
 </style></head><body><div class="wrap" id="app"></div>
 <script src="config.js"></script>
 <script>
-var KEY="gestion_commerce_v2",VER="2.1",S,U=null,cur=null,tab="",q="",inv={},invDone=false,tmpPhoto="",polled=false,MODE="local",CFG=window.SB||{},DB=null,busy=false,Qc=null;
+var KEY="gestion_commerce_v2",VER="2.2",S,U=null,cur=null,tab="",q="",inv={},invDone=false,tmpPhoto="",polled=false,MODE="local",CFG=window.SB||{},DB=null,busy=false,Qc=null;
 function fmt(n){return Number(n||0).toLocaleString("fr-FR")+" FC"}
 function $(h){document.getElementById("app").innerHTML=h+'<p class="mut" style="text-align:center;margin:18px 0">Application développée par les jeunes courageux<br>Version '+VER+'</p>'}
 function g(i){var e=document.getElementById(i);return e?e.value:""}
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
 function H(s){var a=3735928559,b=1103547991,i,c;for(i=0;i<s.length;i++){c=s.charCodeAt(i);a=Math.imul(a^c,2654435761);b=Math.imul(b^c,1597334677)}a=Math.imul(a^(a>>>16),2246822507)^Math.imul(b^(b>>>13),3266489909);return"h:"+(a>>>0).toString(36)+(b>>>0).toString(36)}
 function load(){try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
-if(!S)S={admin:null,merchants:{},shops:{},items:{},staff:{},sales:[],out:[]}}
+if(S){S.achats=S.achats||[];S.reports=S.reports||[]}
+if(!S)S={admin:null,merchants:{},shops:{},items:{},staff:{},sales:[],out:[]};S.achats=S.achats||[];S.reports=S.reports||[]}
 function save(){Qc=null;try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){alert("Stockage plein ou indisponible.")}}
 function setAc(t){document.documentElement.style.setProperty("--ac",t=="bq"?"#d97706":"#0f9d6b")}
 function pad(n){return String(n).padStart(4,"0")}
 function ic(s){return s.type=="bq"?"🛒":"💊"}
 function code(p){var s=S.shops[p.s];return(s&&s.type=="bq"?"BQ-":"PH-")+pad(p.n)}
-function qmap(){if(Qc)return Qc;Qc={};S.sales.forEach(function(x){var k=x.s+"_"+x.n,p=S.items[k];if(p&&x.d>=p.bt)Qc[k]=(Qc[k]||0)+1});return Qc}
+function qmap(){if(Qc)return Qc;Qc={};S.sales.forEach(function(x){var k=x.s+"_"+x.n,p=S.items[k];if(p&&x.d>=p.bt)Qc[k]=(Qc[k]||0)+(x.qd||1)});return Qc}
 function qty(p){return p.base-(qmap()[p.s+"_"+p.n]||0)}
 function photo(inp,cb){var f=inp.files[0];if(!f)return;var r=new FileReader();r.onload=function(){var im=new Image();im.onload=function(){var c=document.createElement("canvas"),s=Math.min(1,240/Math.max(im.width,im.height));c.width=im.width*s;c.height=im.height*s;c.getContext("2d").drawImage(im,0,0,c.width,c.height);cb(c.toDataURL("image/jpeg",.7))};im.src=r.result};r.readAsDataURL(f)}
 /* ---------- synchronisation ---------- */
@@ -56,21 +57,23 @@ e.textContent=MODE=="local"?"○ Sans synchro":on?(n?"⏳ "+n+" en attente":"●
 function pend(p){return S.out.some(function(o){return o.p==p})}
 function repaint(){var a=document.activeElement;if(U&&!(a&&a.tagName=="INPUT"&&a.type!="checkbox"))render()}
 function mk(L){return function(sn){polled=true;var ch=0;sn.docs.forEach(function(x){var v=x.data();if(!v||pend(L+"/"+x.id))return;var l=S[L][x.id];if(!l||(v.u||0)>(l.u||0)){if(L=="shops")v.cnt=Math.max(v.cnt||0,l?l.cnt||0:0);S[L][x.id]=v;ch=1}});if(ch){save();repaint()}}}
+function ap(L){return function(sn){polled=true;var ch=0,ids={};S[L].forEach(function(x){ids[x.id]=1});sn.docs.forEach(function(x){var v=x.data();if(v&&!ids[v.id]){S[L].push(v);ids[v.id]=1;ch=1}});if(ch){save();repaint()}}}
+var INC={ventes:"sales",achats:"achats",rapports:"reports"};
 var HD={adm:function(sn){polled=true;sn.docs.forEach(function(x){var v=x.data();if(x.id=="cfg"&&v&&!pend("adm/cfg")&&(!S.admin||(v.u||0)>(S.admin.u||0))){S.admin=v;save();if(!U&&!document.getElementById("pin"))login()}})},
 merchants:mk("merchants"),shops:mk("shops"),items:mk("items"),staff:mk("staff"),
-ventes:function(sn){polled=true;var ch=0,ids={};S.sales.forEach(function(x){ids[x.id]=1});sn.docs.forEach(function(x){var v=x.data();if(v&&!ids[v.id]){S.sales.push(v);ids[v.id]=1;ch=1}});if(ch){save();repaint()}}};
+ventes:ap("sales"),achats:ap("achats"),rapports:ap("reports")};
 function sbH(){var h={apikey:CFG.key,"Content-Type":"application/json",Prefer:"resolution=merge-duplicates,return=minimal"};if(CFG.key.indexOf("eyJ")==0)h.Authorization="Bearer "+CFG.key;return h}
 function chk(r){if(!r.ok)throw r.status}
 function sbDoc(p){var u=CFG.url+"/rest/v1/docs",c=p.split("/")[0],w=function(v,d){return fetch(u,{method:"POST",headers:sbH(),body:JSON.stringify({path:p,col:c,data:v,deleted:d})}).then(chk)};return{set:function(v){return w(v,false)},delete:function(){return w({},true)}}}
 function sbGet(qs){return fetch(CFG.url+"/rest/v1/docs?select=path,data,deleted,updated_at&"+qs,{headers:sbH()}).then(function(r){if(!r.ok)throw r.status;return r.json()})}
 function sbSn(rows,col){return{docs:rows.filter(function(r){return r.path.split("/")[0]==col&&!r.deleted}).map(function(r){return{id:r.path.split("/")[1],data:function(){return r.data}}})}}
-function sbPoll(){if(!navigator.onLine||!CFG.url)return;
-Promise.all([sbGet("col=in.(adm,merchants,shops,items,staff)"),sbGet("col=eq.ventes&order=updated_at.asc&limit=1000"+(S.since?"&updated_at=gt."+encodeURIComponent(S.since):""))]).then(function(a){
-["adm","merchants","shops","items","staff"].forEach(function(c){HD[c](sbSn(a[0],c))});HD.ventes(sbSn(a[1],"ventes"));
-if(a[1].length){S.since=a[1][a[1].length-1].updated_at;save()}stat()}).catch(function(){})}
+function sbPoll(){if(!navigator.onLine||!CFG.url)return;if(!S.since||typeof S.since!="object")S.since={};var cs=Object.keys(INC);
+Promise.all([sbGet("col=in.(adm,merchants,shops,items,staff)")].concat(cs.map(function(c){return sbGet("col=eq."+c+"&order=updated_at.asc&limit=1000"+(S.since[c]?"&updated_at=gt."+encodeURIComponent(S.since[c]):""))}))).then(function(a){
+["adm","merchants","shops","items","staff"].forEach(function(c){HD[c](sbSn(a[0],c))});
+cs.forEach(function(c,i){var r=a[i+1];HD[c](sbSn(r,c));if(r.length)S.since[c]=r[r.length-1].updated_at});save();stat()}).catch(function(){})}
 function pull(){if(CFG.url&&CFG.key){MODE="sb";DB={doc:sbDoc};sbPoll();setInterval(sbPoll,10000);window.addEventListener("online",function(){sbPoll();flush()});flush();return}
 if(!window.claude)return;MODE="claude";claude.use("db").then(function(d){if(!d){MODE="local";stat();return}DB=d;
-["adm","merchants","shops","items","staff","ventes"].forEach(function(c){d.collection(c).onSnapshot(HD[c],function(){})});flush();stat()}).catch(function(){MODE="local"})}
+["adm","merchants","shops","items","staff","ventes","achats","rapports"].forEach(function(c){d.collection(c).onSnapshot(HD[c],function(){})});flush();stat()}).catch(function(){MODE="local"})}
 window.addEventListener("online",flush);window.addEventListener("offline",stat);setInterval(flush,20000);
 /* ---------- installation et connexion ---------- */
 function setup(){$('<div class="card"><h1>Installation</h1><p class="mut">Premier démarrage : créez le compte de l’administrateur. Identifiant de connexion : <b>admin</b>.</p><input id="nm" placeholder="Nom de l’administrateur"><input id="pi" type="password" inputmode="numeric" placeholder="Code secret (4 caractères min.)"><button onclick="doSetup()">Créer l’administrateur</button></div>')}
@@ -109,41 +112,81 @@ mlist().forEach(function(m){h+='<div class="card"><h2>'+esc(m.nom)+'</h2>';var L
 return h||'<div class="card"><p class="mut">Aucune donnée.</p></div>'}
 /* ---------- commerçant et vendeur ---------- */
 function myShops(){var L=shopsOf(U.mid);if(U.role=="W"){var a=(S.staff[U.id]||{}).sh||[];L=L.filter(function(s){return a.indexOf(s.id)>-1})}return L}
-function render(){if(U.role=="A")return rAdmin();var L=myShops(),M=U.role=="M",need={vendre:1,produits:1,inventaire:1,ventes:1};
-var t=M?[["vendre","Vendre"],["produits","Produits"],["inventaire","Inventaire"],["ventes","Ventes"],["ouvriers","Ouvriers"],["etab","Établissements"],["profil","Profil"]]:[["vendre","Vendre"],["ventes","Mes ventes"]];
+function render(){if(U.role=="A")return rAdmin();var L=myShops(),M=U.role=="M",need={vendre:1,produits:1,inventaire:1,ventes:1,rapport:1};
+var t=M?[["vendre","Vendre"],["produits","Produits"],["inventaire","Inventaire"],["ventes","Ventes"],["bilan","Bilan"],["rapports","Rapports"],["ouvriers","Ouvriers"],["etab","Établissements"],["profil","Profil"]]:[["vendre","Vendre"],["rapport","Mon rapport"],["ventes","Mes ventes"]];
 if(!cur||!L.some(function(s){return s.id==cur}))cur=L[0]?L[0].id:null;if(!L.length&&need[tab]&&M)tab="etab";
 var sh=cur?S.shops[cur]:null;setAc(sh&&sh.type);
 var h=head()+(L.length?'<div class="chips">'+L.map(function(s){return'<button class="'+(s.id==cur?"on":"")+'" onclick="cur=\''+s.id+'\';q=\'\';inv={};invDone=false;render()">'+ic(s)+' '+esc(s.nom)+'</button>'}).join("")+'</div>':'')+tabs(t);
 if(!sh&&need[tab])h+='<div class="card"><p class="mut">Aucun établissement ne vous est attribué. Voyez votre commerçant.</p></div>';
-else h+=({vendre:vVendre,produits:vProduits,inventaire:vInv,ventes:vVentes,ouvriers:vOuv,etab:vEtab,profil:vProfil})[tab]();$(h);setTimeout(stat,0)}
-function list(){var s=q.toLowerCase();return Object.keys(S.items).map(function(k){return S.items[k]}).filter(function(p){return p.s==cur&&(!s||p.nom.toLowerCase().indexOf(s)>-1||code(p).toLowerCase().indexOf(s)>-1||String(p.n)==s)}).sort(function(a,b){return a.n-b.n})}
+else h+=({vendre:vVendre,produits:vProduits,inventaire:vInv,ventes:vVentes,bilan:vBilan,rapports:vRapports,rapport:vRap,ouvriers:vOuv,etab:vEtab,profil:vProfil})[tab]();$(h);setTimeout(stat,0)}
+function shopItems(){return Object.keys(S.items).map(function(k){return S.items[k]}).filter(function(p){return p.s==cur})}
+function list(){var s=q.toLowerCase();return shopItems().filter(function(p){return!s||p.nom.toLowerCase().indexOf(s)>-1||code(p).toLowerCase().indexOf(s)>-1||String(p.n)==s}).sort(function(a,b){return a.n-b.n})}
+function stk(p){var q=qty(p),r=p.par||1;if(r<=1)return q+" pièce(s)";var c=Math.floor(q/r);return c+" "+(p.un||"carton")+(c>1?"s":"")+" + "+(q-c*r)+" détail"}
+function mkSale(p,qd,prix,by){return{id:"s"+Date.now()+Math.random().toString(36).slice(2,6),s:p.s,n:p.n,nom:p.nom,prix:prix,cost:Math.round((p.ach||0)/(p.par||1)*qd*100)/100,qd:qd,by:by,wid:U.id,d:Date.now()}}
 function sb(){return'<input placeholder="Chercher par nom ou numéro…" value="'+esc(q)+'" oninput="q=this.value;keep()">'}
 function keep(){var el=document.activeElement,pos=el.selectionStart;render();var i=document.querySelector("input[placeholder^=Chercher]");if(i){i.focus();i.setSelectionRange(pos,pos)}}
-function vVendre(){var L=list(),h='<div class="card">'+sb()+'<div class="mut">Cochez un produit pour l’enregistrer comme vendu (1 unité).</div>';
-L.forEach(function(p){var Q=qty(p),s=Q<=0;h+='<div class="row"><input type="checkbox" '+(s?"disabled":"")+' onchange="sell('+p.n+')"><div class="g '+(s?"sold":"")+'"><b>'+esc(p.nom)+'</b><div class="mut"><span class="num">'+code(p)+'</span> Stock : '+Q+'</div></div><b>'+fmt(p.detail)+'</b></div>'});
+function vVendre(){var L=list(),h='<div class="card">'+sb()+'<div class="mut">Cochez un produit pour l’enregistrer comme vendu (1 pièce). Le bouton « Gros » vend 1 unité en gros.</div>';
+L.forEach(function(p){var Q=qty(p),s=Q<=0,r=p.par||1;h+='<div class="row"><input type="checkbox" '+(s?"disabled":"")+' onchange="sell('+p.n+')"><div class="g '+(s?"sold":"")+'"><b>'+esc(p.nom)+'</b><div class="mut"><span class="num">'+code(p)+'</span> Stock : '+stk(p)+'</div></div><div style="text-align:right"><b>'+fmt(p.detail)+'</b>'+(r>1&&p.gros&&Q>=r?'<br><button class="s sm" onclick="sell('+p.n+',1)">Gros '+fmt(p.gros)+'</button>':'')+'</div></div>'});
 if(!L.length)h+='<p class="mut">Aucun produit.</p>';return h+'</div>'}
-function sell(n){var p=S.items[cur+"_"+n];if(!p||qty(p)<=0)return;var x={id:"s"+Date.now()+Math.random().toString(36).slice(2,6),s:cur,n:n,nom:p.nom,prix:p.detail,gros:p.gros,by:U.role=="M"?"Commerçant":U.nom,wid:U.id,d:Date.now()};S.sales.push(x);queue("ventes/"+x.id,x);render()}
-function vProduits(){var L=list(),h='<div class="card"><h2>Ajouter / ré-ajouter un produit</h2><input id="pn_" placeholder="Nom du produit"><div class="two"><input id="pg" type="number" placeholder="Prix en gros"><input id="pd" type="number" placeholder="Prix en détail"></div><input id="pq" type="number" placeholder="Quantité" value="1"><button onclick="addP()">Enregistrer</button><p class="mut">Si le nom existe déjà, le produit garde son numéro et le stock augmente.</p></div><div class="card">'+sb();
-L.forEach(function(p){h+='<div class="row"><div class="g"><b>'+esc(p.nom)+'</b><div class="mut"><span class="num">'+code(p)+'</span> Gros '+fmt(p.gros)+' · Détail '+fmt(p.detail)+' · Stock '+qty(p)+'</div></div><button class="s sm" onclick="editP('+p.n+')">Modifier</button></div>'});
+function sell(n,gr){var p=S.items[cur+"_"+n];if(!p)return;var qd=gr?(p.par||1):1;if(qty(p)<qd)return;var x=mkSale(p,qd,gr?p.gros:p.detail,U.role=="M"?"Commerçant":U.nom);S.sales.push(x);queue("ventes/"+x.id,x);render()}
+function vProduits(){var L=list(),h='<div class="card"><h2>Ajouter / ré-ajouter un produit</h2><input id="pn_" placeholder="Nom du produit"><div class="two"><input id="pu" list="uns" placeholder="Unité en gros (carton)"><input id="pp" type="number" placeholder="Pièces par unité (1)"></div><datalist id="uns"><option value="carton"><option value="sec"><option value="ram"><option value="sachet"></datalist><div class="two"><input id="pq" type="number" placeholder="Nb d’unités en gros"><input id="pr" type="number" placeholder="Pièces en détail en plus"></div><input id="pa" type="number" placeholder="Prix d’achat (par unité en gros)"><div class="two"><input id="pg" type="number" placeholder="Prix en gros"><input id="pd" type="number" placeholder="Prix en détail (par pièce)"></div><button onclick="addP()">Enregistrer</button><p class="mut">Si le nom existe déjà, le produit garde son numéro et le stock augmente.</p></div><div class="card">'+sb();
+L.forEach(function(p){h+='<div class="row"><div class="g"><b>'+esc(p.nom)+'</b><div class="mut"><span class="num">'+code(p)+'</span> Achat '+fmt(p.ach)+' · Gros '+fmt(p.gros)+' · Détail '+fmt(p.detail)+'<br>Stock : '+stk(p)+(p.par>1?' ('+p.par+' pièces par '+esc(p.un||"carton")+')':'')+'</div></div><button class="s sm" onclick="editP('+p.n+')">Modifier</button></div>'});
 if(!L.length)h+='<p class="mut">Aucun produit.</p>';return h+'</div>'}
-function addP(){var nom=g("pn_").trim(),gr=+g("pg"),de=+g("pd"),qt=+g("pq")||0;if(!nom||!de)return alert("Nom et prix en détail requis.");
+function addP(){var nom=g("pn_").trim(),un=g("pu").trim(),pp=Math.floor(+g("pp"))||0,par=Math.max(1,pp),c=+g("pq")||0,ex2=+g("pr")||0,ach=+g("pa")||0,gr=+g("pg")||0,de=+g("pd");if(!nom||!de)return alert("Nom et prix en détail requis.");
 var ex=list().filter(function(p){return p.nom.toLowerCase()==nom.toLowerCase()})[0],t=Date.now();
-if(ex){ex.base=qty(ex)+qt;ex.bt=t+1;if(gr)ex.gros=gr;ex.detail=de}else{var sh=S.shops[cur],n=(sh.cnt||0)+1;while(S.items[cur+"_"+n])n++;sh.cnt=n;put("shops",sh);ex={id:cur+"_"+n,s:cur,n:n,nom:nom,gros:gr,detail:de,base:qt,bt:t+1}}
-put("items",ex);render()}
-function editP(n){var p=S.items[cur+"_"+n],a=prompt("Nom",p.nom);if(a===null)return;var b=prompt("Prix en gros",p.gros);if(b===null)return;var c=prompt("Prix en détail",p.detail);if(c===null)return;var d=prompt("Stock",qty(p));if(d===null)return;
-p.nom=a||p.nom;p.gros=+b;p.detail=+c;p.base=+d;p.bt=Date.now()+1;put("items",p);render()}
-function vInv(){var L=list().filter(function(p){return qty(p)>0}),h='<div class="card"><h2>Inventaire</h2><p class="mut">Cochez les produits <b>présents</b>. Les produits non cochés sont considérés vendus.</p>';
-if(!invDone){L.forEach(function(p){h+='<div class="row"><input type="checkbox" '+(inv[p.n]?"checked":"")+' onchange="inv['+p.n+']=this.checked"><div class="g"><b>'+esc(p.nom)+'</b><div class="mut"><span class="num">'+code(p)+'</span> '+fmt(p.detail)+'</div></div></div>'});
+if(ex){if(pp)ex.par=par;if(un)ex.un=un;var qd=c*(ex.par||1)+ex2;ex.base=qty(ex)+qd;ex.bt=t+1;if(ach)ex.ach=ach;if(gr)ex.gros=gr;ex.detail=de}
+else{var sh=S.shops[cur],n=(sh.cnt||0)+1;while(S.items[cur+"_"+n])n++;sh.cnt=n;put("shops",sh);var qd=c*par+ex2;ex={id:cur+"_"+n,s:cur,n:n,nom:nom,un:un||"carton",par:par,ach:ach,gros:gr,detail:de,base:qd,bt:t+1}}
+put("items",ex);
+if(qd>0){var a={id:"a"+t+Math.random().toString(36).slice(2,5),s:cur,n:ex.n,nom:ex.nom,qd:qd,cout:Math.round((ex.ach||0)/(ex.par||1)*qd*100)/100,by:U.nom,d:t};S.achats.push(a);queue("achats/"+a.id,a)}
+render()}
+function editP(n){var p=S.items[cur+"_"+n],f=function(l,v){return prompt(l,v==null?"":v)};
+var a=f("Nom",p.nom);if(a===null)return;var b=f("Prix d’achat (par unité en gros)",p.ach||0);if(b===null)return;var c=f("Prix en gros (par unité en gros)",p.gros||0);if(c===null)return;var d=f("Prix en détail (par pièce)",p.detail);if(d===null)return;var e=f("Nombre de pièces dans 1 "+(p.un||"carton"),p.par||1);if(e===null)return;var st=f("Stock total en pièces (détail)",qty(p));if(st===null)return;
+p.nom=a||p.nom;p.ach=+b;p.gros=+c;p.detail=+d;p.par=Math.max(1,Math.floor(+e)||1);p.base=+st;p.bt=Date.now()+1;put("items",p);render()}
+function vInv(){var L=list().filter(function(p){return qty(p)>0}),h='<div class="card"><h2>Inventaire</h2><p class="mut">Cochez les produits <b>présents</b>. Les produits non cochés sont considérés entièrement vendus.</p>';
+if(!invDone){L.forEach(function(p){h+='<div class="row"><input type="checkbox" '+(inv[p.n]?"checked":"")+' onchange="inv['+p.n+']=this.checked"><div class="g"><b>'+esc(p.nom)+'</b><div class="mut"><span class="num">'+code(p)+'</span> '+stk(p)+'</div></div></div>'});
 return h+(L.length?'<button onclick="invDone=true;render()">Calculer les ventes</button>':'<p class="mut">Aucun produit en stock.</p>')+'</div>'}
-var M=L.filter(function(p){return!inv[p.n]}),tot=0;M.forEach(function(p){tot+=p.detail});
-h+='<h2>Produits vendus</h2>';M.forEach(function(p){h+='<div class="row"><div class="g"><b>'+esc(p.nom)+'</b><div class="mut">'+code(p)+'</div></div><b>'+fmt(p.detail)+'</b></div>'});
+var M=L.filter(function(p){return!inv[p.n]}),tot=0;M.forEach(function(p){tot+=qty(p)*p.detail});
+h+='<h2>Produits vendus</h2>';M.forEach(function(p){h+='<div class="row"><div class="g"><b>'+esc(p.nom)+'</b><div class="mut">'+code(p)+' · '+qty(p)+' pièce(s)</div></div><b>'+fmt(qty(p)*p.detail)+'</b></div>'});
 if(!M.length)h+='<p class="mut">Rien de manquant.</p>';
 return h+'<p class="tot">Total : '+fmt(tot)+'</p><button class="s" onclick="invDone=false;render()">Refaire</button> <button onclick="applyInv()">Retirer du stock</button></div>'}
-function applyInv(){if(!confirm("Mettre le stock des produits non présents à 0 ?"))return;list().forEach(function(p){if(qty(p)>0&&!inv[p.n]){var t=Date.now(),x={id:"s"+t+p.n,s:cur,n:p.n,nom:p.nom,prix:p.detail,gros:p.gros,by:"Inventaire",wid:U.id,d:t};S.sales.push(x);queue("ventes/"+x.id,x);p.base=0;p.bt=t+1;put("items",p)}});inv={};invDone=false;render()}
-function vVentes(){var M=U.role=="M",L=S.sales.filter(function(s){return s.s==cur&&(M||s.wid==U.id)}).sort(function(a,b){return b.d-a.d}),tot=0,ben=0;L.forEach(function(s){tot+=s.prix;ben+=s.prix-(s.gros||0)});
+function applyInv(){if(!confirm("Mettre le stock des produits non présents à 0 ?"))return;list().forEach(function(p){var Q=qty(p);if(Q>0&&!inv[p.n]){var x=mkSale(p,Q,Q*p.detail,"Inventaire");S.sales.push(x);queue("ventes/"+x.id,x);p.base=0;p.bt=x.d+1;put("items",p)}});inv={};invDone=false;render()}
+function vVentes(){var M=U.role=="M",L=S.sales.filter(function(s){return s.s==cur&&(M||s.wid==U.id)}).sort(function(a,b){return b.d-a.d}),tot=0,ben=0;L.forEach(function(s){tot+=s.prix;ben+=s.prix-(s.cost||0)});
 var h='<div class="card"><p class="tot">Total ventes : '+fmt(tot)+'</p>'+(M?'<div class="mut">Marge brute estimée : '+fmt(ben)+'</div>':'')+'</div><div class="card">';
-L.slice(0,200).forEach(function(s){var d=new Date(s.d),it=S.items[s.s+"_"+s.n];h+='<div class="row"><div class="g"><b>'+esc(s.nom)+'</b><div class="mut">'+(it?code(it):"")+' · '+esc(s.by)+' · '+d.toLocaleDateString("fr-FR")+' '+d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})+'</div></div><b>'+fmt(s.prix)+'</b></div>'});
+L.slice(0,200).forEach(function(s){var d=new Date(s.d),it=S.items[s.s+"_"+s.n];h+='<div class="row"><div class="g"><b>'+esc(s.nom)+'</b><div class="mut">'+(it?code(it):"")+' · '+(s.qd||1)+' pièce(s) · '+esc(s.by)+' · '+d.toLocaleDateString("fr-FR")+' '+d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})+'</div></div><b>'+fmt(s.prix)+'</b></div>'});
 if(!L.length)h+='<p class="mut">Aucune vente.</p>';return h+'</div>'}
+var bs="all",rp={step:"e",m:{},decl:""};
+function t0(){var n=new Date();return new Date(n.getFullYear(),n.getMonth(),n.getDate()).getTime()}
+function per(){var n=new Date(),d=t0(),w=(n.getDay()+6)%7;return[["Aujourd’hui",d],["Cette semaine",d-w*864e5],["Ce mois",new Date(n.getFullYear(),n.getMonth(),1).getTime()],["Cette année",new Date(n.getFullYear(),0,1).getTime()],["Général",0]]}
+function vBilan(){var SH=shopsOf(U.mid),ids={};if(bs!="all"&&!S.shops[bs])bs="all";SH.forEach(function(s){if(bs=="all"||s.id==bs)ids[s.id]=1});
+var h='<div class="card"><select onchange="bs=this.value;render()"><option value="all">Tous mes établissements</option>'+SH.map(function(s){return'<option value="'+s.id+'"'+(bs==s.id?" selected":"")+'>'+esc(s.nom)+'</option>'}).join("")+'</select><h2>Vendu et acheté</h2>';
+per().forEach(function(a){var v=0,c=0,b=0;S.sales.forEach(function(x){if(ids[x.s]&&x.d>=a[1]){v+=x.prix;c+=x.cost||0}});S.achats.forEach(function(x){if(ids[x.s]&&x.d>=a[1])b+=x.cout||0});
+h+='<div class="row"><div class="g"><b>'+a[0]+'</b></div><div style="text-align:right">Vendu <b>'+fmt(v)+'</b><br><span class="mut">Acheté '+fmt(b)+' · Marge '+fmt(v-c)+'</span></div></div>'});
+h+='</div><div class="card"><h2>Stock restant</h2>';var tA=0,tV=0,n=0;
+Object.keys(S.items).map(function(k){return S.items[k]}).filter(function(p){return ids[p.s]&&qty(p)>0}).sort(function(a,b){return a.s<b.s?-1:a.s>b.s?1:a.n-b.n}).forEach(function(p){var Q=qty(p),a=Q*(p.ach||0)/(p.par||1),v=Q*p.detail;tA+=a;tV+=v;n++;
+h+='<div class="row"><div class="g"><b>'+esc(p.nom)+'</b><div class="mut">'+code(p)+' · '+stk(p)+' · '+Q+' pièce(s)'+(bs=="all"&&S.shops[p.s]?' · '+esc(S.shops[p.s].nom):'')+'</div></div><div style="text-align:right" class="mut">Achat '+fmt(a)+'<br>Vente '+fmt(v)+'</div></div>'});
+if(!n)h+='<p class="mut">Aucun stock.</p>';return h+'<p class="tot">Valeur du stock</p><div>À l’achat : <b>'+fmt(tA)+'</b></div><div>À la vente (détail) : <b>'+fmt(tV)+'</b></div></div>'}
+function vRapports(){var ids={};shopsOf(U.mid).forEach(function(s){ids[s.id]=1});var L=S.reports.filter(function(r){return ids[r.s]}).sort(function(a,b){return b.d-a.d}),h='<div class="card"><h2>Rapports des ouvriers</h2>';
+L.slice(0,100).forEach(function(r){var d=new Date(r.d);h+='<details style="padding:9px 0;border-bottom:1px solid var(--bd)"><summary><b>'+esc(r.by)+'</b> · '+d.toLocaleDateString("fr-FR")+' '+d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})+' <b style="float:right">'+fmt(r.total)+'</b><div class="mut">'+esc((S.shops[r.s]||{}).nom||"")+(r.decl?' · Total déclaré '+fmt(r.decl):'')+'</div></summary>'+r.lines.map(function(l){return'<div class="mut">'+esc(l.nom)+' × '+l.q+' = '+fmt(l.m)+'</div>'}).join("")+'</details>'});
+if(!L.length)h+='<p class="mut">Aucun rapport reçu.</p>';return h+'</div>'}
+function recToday(){var T={};S.sales.forEach(function(x){if(x.s==cur&&x.wid==U.id&&x.d>=t0()){var t=T[x.n]||(T[x.n]={n:x.n,nom:x.nom,q:0,m:0});t.q+=x.qd||1;t.m+=x.prix}});return Object.keys(T).map(function(k){return T[k]})}
+function rpS(n,f,v){var m=rp.m[n]||(rp.m[n]={});m[f]=v}
+function rapLines(){var man=[];shopItems().forEach(function(p){var m=rp.m[p.n];if(!m)return;var q=+m.q||0,a=+m.m||0;if(!(m.c||q>0||a>0))return;q=q||1;man.push({n:p.n,nom:p.nom,q:q,m:a||q*p.detail})});return{rec:recToday(),man:man}}
+function vRap(){return rp.step=="s"?rapSum():rapEdit()}
+function rapEdit(){var R=recToday(),n=0,tot=0;R.forEach(function(l){n+=l.q;tot+=l.m});
+var h='<div class="card"><h2>Rapport du jour</h2><p>Ventes déjà enregistrées : <b>'+n+'</b> pièce(s) · <b>'+fmt(tot)+'</b></p><div class="mut">Les produits cochés dans « Vendre » sont déjà comptés.</div></div><div class="card"><h2>Autres marchandises vendues (facultatif)</h2><div class="mut">Cochez, puis indiquez la quantité et le montant si vous voulez. Sans montant, le prix de détail est utilisé.</div>'+sb();
+list().forEach(function(p){var m=rp.m[p.n]||{};h+='<div class="row" style="flex-wrap:nowrap"><input type="checkbox" '+(m.c?"checked":"")+' onchange="rpS('+p.n+',\'c\',this.checked)"><div class="g"><b>'+esc(p.nom)+'</b><div class="mut">'+code(p)+' · '+fmt(p.detail)+'</div></div><input style="width:62px;margin:0" type="number" placeholder="Qté" value="'+esc(m.q||"")+'" oninput="rpS('+p.n+',\'q\',this.value)"><input style="width:92px;margin:0" type="number" placeholder="Montant" value="'+esc(m.m||"")+'" oninput="rpS('+p.n+',\'m\',this.value)"></div>'});
+h+='</div><div class="card"><input type="number" placeholder="Total du jour (facultatif)" value="'+esc(rp.decl)+'" oninput="rp.decl=this.value"><button onclick="rp.step=\'s\';render()">Envoyer mon rapport</button></div>';
+var M=S.reports.filter(function(r){return r.wid==U.id}).sort(function(a,b){return b.d-a.d}).slice(0,5);
+if(M.length){h+='<div class="card"><h2>Mes derniers rapports</h2>';M.forEach(function(r){h+='<div class="row"><div class="g">'+new Date(r.d).toLocaleDateString("fr-FR")+'</div><b>'+fmt(r.total)+'</b></div>'});h+='</div>'}return h}
+function rapSum(){var R=rapLines(),all=R.rec.concat(R.man),tot=0;all.forEach(function(l){tot+=l.m});
+var h='<div class="card"><h2>Rapport synthétique</h2><div class="mut">'+esc(U.nom)+' · '+new Date().toLocaleDateString("fr-FR")+' · '+esc((S.shops[cur]||{}).nom||"")+'</div>';
+all.forEach(function(l){h+='<div class="row"><div class="g"><b>'+esc(l.nom)+'</b><div class="mut">'+l.q+' pièce(s)</div></div><b>'+fmt(l.m)+'</b></div>'});
+if(!all.length)h+='<p class="mut">Aucune marchandise.</p>';
+return h+'<p class="tot">Total : '+fmt(tot)+'</p>'+(+rp.decl?'<p>Total déclaré : <b>'+fmt(+rp.decl)+'</b></p>':'')+'<button class="s" onclick="rp.step=\'e\';render()">Modifier</button> <button onclick="sendRp()">Envoyer à mon patron</button></div>'}
+function sendRp(){var R=rapLines(),all=R.rec.concat(R.man),tot=0;if(!all.length&&!(+rp.decl))return alert("Rien à envoyer.");all.forEach(function(l){tot+=l.m});
+R.man.forEach(function(l){var p=S.items[cur+"_"+l.n],x=mkSale(p,l.q,l.m,U.nom);S.sales.push(x);queue("ventes/"+x.id,x)});
+var r={id:"r"+Date.now()+Math.random().toString(36).slice(2,5),s:cur,wid:U.id,by:U.nom,d:Date.now(),lines:all.map(function(l){return{n:l.n,nom:l.nom,q:l.q,m:l.m}}),total:tot,decl:+rp.decl||0};S.reports.push(r);queue("rapports/"+r.id,r);rp={step:"e",m:{},decl:""};alert("Rapport envoyé à votre patron.");render()}
+
 function vOuv(){var SH=shopsOf(U.mid),h='<div class="card"><h2>Créer un ouvrier</h2><input id="wi" placeholder="Identifiant de connexion (ex. marie)" autocapitalize="none"><input id="wn" placeholder="Nom de l’ouvrier"><input id="wp" type="password" inputmode="numeric" placeholder="Code secret (4 caractères min.)"><button onclick="addW()">Créer</button><p class="mut">Il est attribué à l’établissement affiché en haut. Vous pouvez changer cela ensuite.</p></div><div class="card">',n=0;
 Object.keys(S.staff).map(function(k){return S.staff[k]}).filter(function(w){return w.mid==U.mid&&!w.x}).forEach(function(w){n++;h+='<div class="row"><div class="g"><b>'+esc(w.nom)+'</b> <span class="mut">@'+esc(w.id)+'</span><div>'+SH.map(function(s){return'<label class="lb"><input type="checkbox" '+((w.sh||[]).indexOf(s.id)>-1?"checked":"")+' onchange="tg(\''+w.id+'\',\''+s.id+'\')"> '+ic(s)+' '+esc(s.nom)+'</label>'}).join("")+'</div></div><button class="s sm" onclick="codeW(\''+w.id+'\')">Code</button><button class="r sm" onclick="delW(\''+w.id+'\')">Supprimer</button></div>'});
 if(!n)h+='<p class="mut">Aucun ouvrier.</p>';return h+'</div>'}
