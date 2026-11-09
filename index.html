@@ -29,6 +29,7 @@ button.s{background:#e8eef4;color:var(--tx);box-shadow:none}button.r{background:
 .sold{opacity:.5;text-decoration:line-through}
 .badge{font-size:12px;padding:2px 9px;border-radius:99px;color:#fff}.ok{background:#0e9f6e}.no{background:#dc2626}
 .lb{display:flex;align-items:center;gap:6px;font-size:13px;margin-right:10px}
+summary{cursor:pointer;font-weight:700;color:#b91c1c}
 label.f{display:block;font-size:13px;color:var(--mut);margin:2px 0 3px}
 .brand{font-size:50px;text-align:center;margin:26px 0 8px}.ctr{text-align:center}
 .kpis{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
@@ -44,7 +45,7 @@ td.r,th.r{text-align:right}.pos{color:#0a8f5b;font-weight:700}.neg{color:#dc2626
 </style></head><body><div class="wrap" id="app"></div>
 <script src="config.js"></script>
 <script>
-var BV="2.5";
+var BV="2.6";
 function vc(a,b){a=String(a).split(".");b=String(b).split(".");for(var i=0;i<4;i++){var x=+a[i]||0,y=+b[i]||0;if(x!=y)return x>y?1:-1}return 0}
 (function(){try{var u=JSON.parse(localStorage.getItem("app_upd")||"null");
 if(u&&u.h&&vc(u.v,BV)>0&&!window.__ap){window.__sw=1;setTimeout(function(){window.__sw=0;window.__ap=1;document.open();document.write(u.h);document.close()},0)}}catch(e){}
@@ -60,8 +61,8 @@ function g(i){var e=document.getElementById(i);return e?e.value:""}
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
 function H(s){var a=3735928559,b=1103547991,i,c;for(i=0;i<s.length;i++){c=s.charCodeAt(i);a=Math.imul(a^c,2654435761);b=Math.imul(b^c,1597334677)}a=Math.imul(a^(a>>>16),2246822507)^Math.imul(b^(b>>>13),3266489909);return"h:"+(a>>>0).toString(36)+(b>>>0).toString(36)}
 function load(){try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
-if(S){S.achats=S.achats||[];S.reports=S.reports||[]}
-if(!S)S={admin:null,merchants:{},shops:{},items:{},staff:{},sales:[],out:[]};S.achats=S.achats||[];S.reports=S.reports||[]}
+if(S){S.achats=S.achats||[];S.reports=S.reports||[];S.paies=S.paies||[];S.depenses=S.depenses||[]}
+if(!S)S={admin:null,merchants:{},shops:{},items:{},staff:{},sales:[],out:[]};S.achats=S.achats||[];S.reports=S.reports||[];S.paies=S.paies||[];S.depenses=S.depenses||[]}
 function save(){Qc=null;try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){alert("Stockage plein ou indisponible.")}}
 function setAc(t){var c={bq:["#f59e0b","#f97316"],ad:["#6366f1","#8b5cf6"]}[t]||["#0e9f6e","#14b8a6"],st=document.documentElement.style;st.setProperty("--ac",c[0]);st.setProperty("--ac2",c[1])}
 function pad(n){return String(n).padStart(4,"0")}
@@ -82,10 +83,10 @@ function pend(p){return S.out.some(function(o){return o.p==p})}
 function repaint(){var a=document.activeElement;if(U&&!(a&&a.tagName=="INPUT"&&a.type!="checkbox"))render()}
 function mk(L){return function(sn){polled=true;var ch=0;sn.docs.forEach(function(x){var v=x.data();if(!v||pend(L+"/"+x.id))return;var l=S[L][x.id];if(!l||(v.u||0)>(l.u||0)){if(L=="shops")v.cnt=Math.max(v.cnt||0,l?l.cnt||0:0);S[L][x.id]=v;ch=1}});if(ch){save();repaint()}}}
 function ap(L){return function(sn){polled=true;var ch=0,ids={};S[L].forEach(function(x){ids[x.id]=1});sn.docs.forEach(function(x){var v=x.data();if(v&&!ids[v.id]){S[L].push(v);ids[v.id]=1;ch=1}});if(ch){save();repaint()}}}
-var INC={ventes:"sales",achats:"achats",rapports:"reports"};
+var INC={ventes:"sales",achats:"achats",rapports:"reports",paies:"paies",depenses:"depenses"};
 var HD={adm:function(sn){polled=true;sn.docs.forEach(function(x){var v=x.data();if(x.id=="cfg"&&v&&!pend("adm/cfg")&&(!S.admin||(v.u||0)>(S.admin.u||0))){S.admin=v;save();if(!U&&!document.getElementById("pin"))login()}})},
 merchants:mk("merchants"),shops:mk("shops"),items:mk("items"),staff:mk("staff"),
-ventes:ap("sales"),achats:ap("achats"),rapports:ap("reports")};
+ventes:ap("sales"),achats:ap("achats"),rapports:ap("reports"),paies:ap("paies"),depenses:ap("depenses")};
 function sbH(){var h={apikey:CFG.key,"Content-Type":"application/json",Prefer:"resolution=merge-duplicates,return=minimal"};if(CFG.key.indexOf("eyJ")==0)h.Authorization="Bearer "+CFG.key;return h}
 function chk(r){if(!r.ok)throw r.status}
 function sbDoc(p){var u=CFG.url+"/rest/v1/docs",c=p.split("/")[0],w=function(v,d){return fetch(u,{method:"POST",headers:sbH(),body:JSON.stringify({path:p,col:c,data:v,deleted:d})}).then(chk)};return{set:function(v){return w(v,false)},delete:function(){return w({},true)}}}
@@ -97,7 +98,7 @@ Promise.all([sbGet("col=in.(adm,merchants,shops,items,staff)")].concat(cs.map(fu
 cs.forEach(function(c,i){var r=a[i+1];HD[c](sbSn(r,c));if(r.length)S.since[c]=r[r.length-1].updated_at});save();stat()}).catch(function(){})}
 function pull(){if(CFG.url&&CFG.key){MODE="sb";DB={doc:sbDoc};sbPoll();setInterval(sbPoll,10000);window.addEventListener("online",function(){sbPoll();flush()});flush();return}
 if(!window.claude)return;MODE="claude";claude.use("db").then(function(d){if(!d){MODE="local";stat();return}DB=d;
-["adm","merchants","shops","items","staff","ventes","achats","rapports"].forEach(function(c){d.collection(c).onSnapshot(HD[c],function(){})});flush();stat()}).catch(function(){MODE="local"})}
+["adm","merchants","shops","items","staff","ventes","achats","rapports","paies","depenses"].forEach(function(c){d.collection(c).onSnapshot(HD[c],function(){})});flush();stat()}).catch(function(){MODE="local"})}
 window.addEventListener("online",flush);window.addEventListener("offline",stat);setInterval(flush,20000);
 /* ---------- installation et connexion ---------- */
 function setup(){$('<div class="brand">💊🛒</div><div class="card"><h1 class="ctr">Installation</h1><p class="mut">Premier démarrage : créez le compte de l’administrateur. Identifiant de connexion : <b>admin</b>.</p><input id="nm" placeholder="Nom de l’administrateur"><input id="pi" type="password" inputmode="numeric" placeholder="Code secret (4 caractères min.)"><button onclick="doSetup()">Créer l’administrateur</button></div>')}
@@ -135,22 +136,28 @@ put("merchants",{id:id,nom:n,tel:g("mt"),pin:H(p),actif:true,c:Date.now()});rend
 function togM(id){var m=S.merchants[id];m.actif=!m.actif;put("merchants",m);render()}
 function codeM(id){var p=prompt("Nouveau code secret (4 caractères min.)");if(p===null)return;if(p.trim().length<4)return alert("Code trop court.");var m=S.merchants[id];m.pin=H(p.trim());put("merchants",m);alert("Code modifié.")}
 function aSh(){var M=mlist().filter(function(m){return m.actif}),h='<div class="card"><h2>Nouvel établissement</h2><select id="sm">'+M.map(function(m){return'<option value="'+m.id+'">'+esc(m.nom)+'</option>'}).join("")+'</select><select id="st2"><option value="ph">💊 Pharmacie</option><option value="bq">🛒 Boutique</option></select><input id="sn" placeholder="Nom (ex. Pharmacie de Garde)"><button onclick="addS(g(\'sm\'))">Créer l’établissement</button></div><div class="card">';
-shopsOf().forEach(function(s){var m=S.merchants[s.mid];h+='<div class="row"><div class="g"><b>'+ic(s)+' '+esc(s.nom)+'</b><div class="mut">'+esc(m?m.nom:"?")+'</div></div><button class="r sm" onclick="delS(\''+s.id+'\')">Supprimer</button></div>'});
-if(!shopsOf().length)h+='<p class="mut">Aucun établissement.</p>';return h+'</div>'}
+shopsOf().forEach(function(s){var m=S.merchants[s.mid];h+='<div class="row"><div class="g"><b>'+ic(s)+' '+esc(s.nom)+'</b><div class="mut">'+esc(m?m.nom:"?")+'</div></div></div>'});
+if(!shopsOf().length)h+='<p class="mut">Aucun établissement.</p>';h+='</div>';
+var D=Object.keys(S.shops).map(function(k){return S.shops[k]}).filter(function(s){return s.x});
+if(shopsOf().length)h+=danger(shopsOf());
+if(D.length){h+='<div class="card"><h2>Établissements supprimés</h2>';D.forEach(function(s){var m=S.merchants[s.mid];h+='<div class="row"><div class="g">'+ic(s)+' '+esc(s.nom)+'<div class="mut">'+esc(m?m.nom:"?")+'</div></div><button class="s sm" onclick="resS(\''+s.id+'\')">Restaurer</button></div>'});h+='</div>'}
+return h}
 function addS(mid){var n=g(tab=="shops"?"sn":"en").trim();if(!n||!mid)return alert("Nom et commerçant requis.");put("shops",{id:newId(),mid:mid,type:g(tab=="shops"?"st2":"et"),nom:n,cnt:0,c:Date.now()});render()}
-function delS(id){if(!confirm("Supprimer cet établissement ? Il ne sera plus accessible."))return;var s=S.shops[id];s.x=1;put("shops",s);render()}
+function delS(id){var s=S.shops[id];if(!s)return;var t=prompt("⚠ Suppression de « "+s.nom+" ».\nPour confirmer, tapez le nom exact de l’établissement :");if(t===null)return;if(t.trim()!=s.nom.trim())return alert("Nom incorrect. Suppression annulée.");if(!confirm("Dernière confirmation : supprimer « "+s.nom+" » ?"))return;s.x=1;put("shops",s);render()}
+function resS(id){var s=S.shops[id];delete s.x;put("shops",s);render()}
+function danger(L){var h='<details class="card"><summary>⚠ Zone dangereuse</summary><p class="mut">Cette zone sert à supprimer un établissement. Une confirmation par le nom est demandée.</p>';L.forEach(function(s){h+='<div class="row"><div class="g">'+ic(s)+' '+esc(s.nom)+'</div><button class="r sm" onclick="delS(\''+s.id+'\')">Supprimer…</button></div>'});return h+'</details>'}
 function aAp(){var T={},h="";S.sales.forEach(function(x){var t=T[x.s]||(T[x.s]={n:0,m:0});t.n++;t.m+=x.prix});
 mlist().forEach(function(m){h+='<div class="card"><h2>'+esc(m.nom)+'</h2>';var L=shopsOf(m.id),tot=0;L.forEach(function(s){var t=T[s.id]||{n:0,m:0};tot+=t.m;h+='<div class="row"><div class="g">'+ic(s)+' '+esc(s.nom)+'<div class="mut">'+t.n+' vente(s)</div></div><b>'+fmt(t.m)+'</b></div>'});if(!L.length)h+='<p class="mut">Aucun établissement.</p>';h+='<p class="tot">Total : '+fmt(tot)+'</p></div>'});
 return h||'<div class="card"><p class="mut">Aucune donnée.</p></div>'}
 /* ---------- commerçant et vendeur ---------- */
 function myShops(){var L=shopsOf(U.mid);if(U.role=="W"){var a=(S.staff[U.id]||{}).sh||[];L=L.filter(function(s){return a.indexOf(s.id)>-1})}return L}
 function render(){if(U.role=="A")return rAdmin();var L=myShops(),M=U.role=="M",need={tableau:1,vendre:1,produits:1,inventaire:1,ventes:1,rapport:1};
-var t=M?[["tableau","Tableau de bord"],["vendre","Vendre"],["produits","Produits"],["inventaire","Inventaire"],["ventes","Ventes"],["bilan","Bilan"],["rapports","Rapports"],["ouvriers","Ouvriers"],["etab","Établissements"],["profil","Profil"]]:[["vendre","Vendre"],["rapport","Mon rapport"],["ventes","Mes ventes"]];
+var t=M?[["tableau","Tableau de bord"],["vendre","Vendre"],["produits","Produits"],["inventaire","Inventaire"],["ventes","Ventes"],["bilan","Bilan"],["rapports","Rapports"],["ouvriers","Ouvriers"],["salaires","Salaires"],["depenses","Dépenses"],["etab","Établissements"],["profil","Profil"]]:[["vendre","Vendre"],["rapport","Mon rapport"],["depenses","Dépenses"],["ventes","Mes ventes"]];
 if(!cur||!L.some(function(s){return s.id==cur}))cur=L[0]?L[0].id:null;if(!L.length&&need[tab]&&M)tab="etab";
 var sh=cur?S.shops[cur]:null;setAc(sh&&sh.type);
 var h=head()+(L.length?'<div class="chips">'+L.map(function(s){return'<button class="'+(s.id==cur?"on":"")+'" onclick="cur=\''+s.id+'\';q=\'\';inv={};invDone=false;render()">'+ic(s)+' '+esc(s.nom)+'</button>'}).join("")+'</div>':'')+tabs(t);
 if(!sh&&need[tab])h+='<div class="card"><p class="mut">Aucun établissement ne vous est attribué. Voyez votre commerçant.</p></div>';
-else h+=({tableau:vTableau,vendre:vVendre,produits:vProduits,inventaire:vInv,ventes:vVentes,bilan:vBilan,rapports:vRapports,rapport:vRap,ouvriers:vOuv,etab:vEtab,profil:vProfil})[tab]();$(h);setTimeout(stat,0)}
+else h+=({tableau:vTableau,vendre:vVendre,produits:vProduits,inventaire:vInv,ventes:vVentes,bilan:vBilan,rapports:vRapports,rapport:vRap,salaires:vSal,depenses:vDep,ouvriers:vOuv,etab:vEtab,profil:vProfil})[tab]();$(h);setTimeout(stat,0);setTimeout(sigInit,0)}
 function shopItems(){return Object.keys(S.items).map(function(k){return S.items[k]}).filter(function(p){return p.s==cur})}
 function list(){var s=q.toLowerCase();return shopItems().filter(function(p){return!s||p.nom.toLowerCase().indexOf(s)>-1||code(p).toLowerCase().indexOf(s)>-1||String(p.n)==s}).sort(function(a,b){return a.n-b.n})}
 function stk(p){var q=qty(p),r=p.par||1;if(r<=1)return q+" pièce(s)";var c=Math.floor(q/r);return c+" "+(p.un||"carton")+(c>1?"s":"")+" + "+(q-c*r)+" détail"}
@@ -226,11 +233,47 @@ S.sales.forEach(function(x){if(x.s!=cur)return;vt+=x.prix;ct+=x.cost||0;if(x.d>=
 S.achats.forEach(function(x){if(x.s==cur)bt+=x.cout||0});
 shopItems().forEach(function(p){var Q=qty(p);if(Q>0)sv+=Q*(p.ach||0)/(p.par||1);else rup++});
 var h='<div class="kpis"><div class="kpi"><small>Vendu aujourd’hui</small><b>'+fmt(v0)+'</b></div><div class="kpi b"><small>Vendu au total</small><b>'+fmt(vt)+'</b></div><div class="kpi p"><small>Bénéfice total</small><b>'+fmt(vt-ct)+'</b></div><div class="kpi o"><small>Acheté au total</small><b>'+fmt(bt)+'</b></div><div class="kpi"><small>Valeur du stock (achat)</small><b>'+fmt(sv)+'</b></div><div class="kpi o"><small>Produits épuisés</small><b>'+rup+'</b></div></div>';
-var g=tb=="g";
+var g=tb=="g",m0=new Date(new Date().getFullYear(),new Date().getMonth(),1).getTime(),ids={},vm=0,cm=0,dm=0,sm=0;shopsOf(U.mid).forEach(function(z){ids[z.id]=1});
+S.sales.forEach(function(x){if(ids[x.s]&&x.d>=m0){vm+=x.prix;cm+=x.cost||0}});S.depenses.forEach(function(x){if(x.mid==U.mid&&x.d>=m0)dm+=x.montant});S.paies.forEach(function(x){if(x.mid==U.mid&&x.d>=m0)sm+=x.montant});
+var net=vm-cm-dm-sm;h+='<div class="card"><h2>Ce mois-ci (tous mes établissements)</h2><div class="row"><div class="g">Vendu</div><b>'+fmt(vm)+'</b></div><div class="row"><div class="g">Marge sur les ventes</div><b>'+fmt(vm-cm)+'</b></div><div class="row"><div class="g">Dépenses</div><b>'+fmt(dm)+'</b></div><div class="row"><div class="g">Salaires payés</div><b>'+fmt(sm)+'</b></div><div class="row"><div class="g"><b>Bénéfice net</b></div><b class="'+(net>=0?"pos":"neg")+'">'+fmt(net)+'</b></div></div>';
 h+='<div class="card"><h2>Tableau des produits</h2><div class="tabs"><button class="'+(g?"":"on")+'" onclick="tb=\'d\';render()">Au détail (1 pièce)</button><button class="'+(g?"on":"")+'" onclick="tb=\'g\';render()">En gros (1 unité)</button></div>'+sb()+'<div class="mut" style="margin-bottom:6px">Montants en FC, '+(g?"par unité en gros":"par pièce")+'.</div><div class="tw"><table><tr><th>N°</th><th>Produit</th><th class="r">Prix d’achat</th><th class="r">Prix de vente</th><th class="r">Bénéfice</th></tr>';
 list().forEach(function(p){var a=g?(p.ach||0):(p.ach||0)/(p.par||1),v=g?(p.gros||0):p.detail,b=v-a,ok=!g||p.gros>0;
 h+='<tr><td><b>'+code(p)+'</b></td><td>'+esc(p.nom)+'</td><td class="r">'+nf(a)+'</td><td class="r">'+(ok?nf(v):"—")+'</td><td class="r '+(ok?(b>=0?"pos":"neg"):"")+'">'+(ok?nf(b)+(a>0?'<br><span class="mut">'+Math.round(b/a*100)+' %</span>':''):"—")+'</td></tr>'});
 return h+'</table></div></div>'}
+
+var pay=null,SG={d:false,has:false};
+function mkey(d){d=d||new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")}
+function mlabel(m){var p=m.split("-");return new Date(+p[0],+p[1]-1,1).toLocaleDateString("fr-FR",{month:"long",year:"numeric"})}
+function months(){var a=[],d=new Date();for(var i=0;i<6;i++)a.push(mkey(new Date(d.getFullYear(),d.getMonth()-i,1)));return a}
+function workersOf(){return Object.keys(S.staff).map(function(k){return S.staff[k]}).filter(function(w){return w.mid==U.mid&&!w.x})}
+function sigImg(p){return p.sig?'<img src="'+p.sig+'" style="height:36px;background:#fff;border:1px solid var(--bd);border-radius:6px">':''}
+function sigInit(){var c=document.getElementById("sg");if(!c||!c.getContext)return;var x=c.getContext("2d");x.lineWidth=2.5;x.lineCap="round";x.strokeStyle="#1f2a37";
+var r=function(e){var b=c.getBoundingClientRect(),t=e.touches?e.touches[0]:e;return[(t.clientX-b.left)*c.width/b.width,(t.clientY-b.top)*c.height/b.height]};
+var st=function(e){e.preventDefault();SG.d=true;var p=r(e);x.beginPath();x.moveTo(p[0],p[1])},mv=function(e){if(!SG.d)return;e.preventDefault();var p=r(e);x.lineTo(p[0],p[1]);x.stroke();SG.has=true},en=function(){SG.d=false};
+c.addEventListener("touchstart",st,{passive:false});c.addEventListener("touchmove",mv,{passive:false});c.addEventListener("touchend",en);c.addEventListener("mousedown",st);c.addEventListener("mousemove",mv);window.addEventListener("mouseup",en)}
+function clrSig(){var c=document.getElementById("sg");if(c)c.getContext("2d").clearRect(0,0,c.width,c.height);SG.has=false}
+function vSal(){if(pay)return vPay();var mo=mkey(),W=workersOf(),h='<div class="card"><h2>Salaires · '+mlabel(mo)+'</h2>';
+W.forEach(function(w){var p=S.paies.filter(function(x){return x.wid==w.id&&x.mois==mo})[0];h+='<div class="row"><div class="g"><b>'+esc(w.nom)+'</b><div class="mut">Salaire du mois : '+fmt(w.sal)+'</div></div><span class="badge '+(p?"ok":"no")+'">'+(p?"Payé":"Non payé")+'</span><button class="s sm" onclick="setSal(\''+w.id+'\')">Salaire</button>'+(p?'':'<button class="sm" onclick="startPay(\''+w.id+'\')">Payer</button>')+'</div>'});
+if(!W.length)h+='<p class="mut">Créez d’abord des ouvriers dans l’onglet Ouvriers.</p>';h+='</div>';
+var P=S.paies.filter(function(x){return x.mid==U.mid}).sort(function(a,b){return b.d-a.d});
+h+='<div class="card"><h2>Historique des paiements</h2>';
+P.slice(0,100).forEach(function(p){h+='<div class="row"><div class="g"><b>'+esc(p.nom)+'</b><div class="mut">'+mlabel(p.mois)+' · payé le '+new Date(p.d).toLocaleDateString("fr-FR")+'</div></div><div style="text-align:right"><b>'+fmt(p.montant)+'</b><br>'+sigImg(p)+'</div></div>'});
+if(!P.length)h+='<p class="mut">Aucun paiement.</p>';return h+'</div>'}
+function setSal(id){var w=S.staff[id],v=prompt("Salaire mensuel de "+w.nom+" (FC)",w.sal||0);if(v===null)return;w.sal=Math.max(0,+v||0);put("staff",w);render()}
+function startPay(id){pay={wid:id,mois:mkey()};SG.has=false;render()}
+function vPay(){var w=S.staff[pay.wid];return'<div class="card"><h2>Paiement du salaire</h2><p><b>'+esc(w.nom)+'</b></p><label class="f">Mois</label><select id="pmo">'+months().map(function(m){return'<option value="'+m+'"'+(m==pay.mois?" selected":"")+'>'+mlabel(m)+'</option>'}).join("")+'</select><label class="f">Montant payé (FC)</label><input id="pm" type="number" value="'+(w.sal||"")+'"><label class="f">Signature de l’ouvrier (avec le doigt)</label><canvas id="sg" width="320" height="140" style="width:100%;height:140px;background:#fff;border:2px dashed #b6c4d2;border-radius:12px;touch-action:none"></canvas><div style="margin-top:10px"><button class="s" onclick="clrSig()">Effacer</button> <button class="s" onclick="pay=null;render()">Annuler</button> <button onclick="okPay()">Valider le paiement</button></div></div>'}
+function okPay(){var w=S.staff[pay.wid],mo=g("pmo"),m=+g("pm");if(!(m>0))return alert("Indiquez le montant payé.");if(!SG.has)return alert("La signature de l’ouvrier est requise.");
+if(S.paies.some(function(x){return x.wid==w.id&&x.mois==mo})&&!confirm("Un paiement existe déjà pour ce mois. Continuer ?"))return;
+var c=document.getElementById("sg"),p={id:"p"+Date.now()+Math.random().toString(36).slice(2,5),mid:U.mid,wid:w.id,nom:w.nom,mois:mo,montant:m,sig:c&&c.toDataURL?c.toDataURL("image/png"):"",by:U.nom,d:Date.now()};
+S.paies.push(p);queue("paies/"+p.id,p);pay=null;alert("Paiement enregistré.");render()}
+function vDep(){var M=U.role=="M",d0=new Date(new Date().getFullYear(),new Date().getMonth(),1).getTime(),L=S.depenses.filter(function(x){return M?x.mid==U.mid:x.wid==U.id}).sort(function(a,b){return b.d-a.d}),tm=0,tt=0;
+L.forEach(function(x){tt+=x.montant;if(x.d>=d0)tm+=x.montant});
+var h='<div class="card"><h2>Nouvelle dépense</h2><input id="dm" placeholder="Motif (ex. transport, électricité)"><input id="dp" type="number" placeholder="Montant (FC)"><button onclick="addDep()">Enregistrer la dépense</button></div><div class="card"><div>Ce mois : <b>'+fmt(tm)+'</b> · Total : <b>'+fmt(tt)+'</b></div>';
+L.slice(0,100).forEach(function(x){var d=new Date(x.d);h+='<div class="row"><div class="g"><b>'+esc(x.motif)+'</b><div class="mut">'+esc(x.by)+' · '+d.toLocaleDateString("fr-FR")+(M&&x.s&&S.shops[x.s]?' · '+esc(S.shops[x.s].nom):'')+'</div></div><b>'+fmt(x.montant)+'</b></div>'});
+if(!L.length)h+='<p class="mut">Aucune dépense.</p>';h+='</div>';
+if(!M){var P=S.paies.filter(function(x){return x.wid==U.id}).sort(function(a,b){return b.d-a.d});h+='<div class="card"><h2>Mes salaires reçus</h2>';P.forEach(function(p){h+='<div class="row"><div class="g"><b>'+mlabel(p.mois)+'</b></div><div style="text-align:right"><b>'+fmt(p.montant)+'</b><br>'+sigImg(p)+'</div></div>'});if(!P.length)h+='<p class="mut">Aucun paiement.</p>';h+='</div>'}
+return h}
+function addDep(){var mo=g("dm").trim(),m=+g("dp");if(!mo||!(m>0))return alert("Motif et montant requis.");var x={id:"d"+Date.now()+Math.random().toString(36).slice(2,5),mid:U.mid,s:cur||"",wid:U.id,by:U.role=="M"?"Patron":U.nom,role:U.role,motif:mo,montant:m,d:Date.now()};S.depenses.push(x);queue("depenses/"+x.id,x);render()}
 
 function vOuv(){var SH=shopsOf(U.mid),h='<div class="card"><h2>Créer un ouvrier</h2><input id="wi" placeholder="Identifiant de connexion (ex. marie)" autocapitalize="none"><input id="wn" placeholder="Nom de l’ouvrier"><input id="wp" type="password" inputmode="numeric" placeholder="Code secret (4 caractères min.)"><button onclick="addW()">Créer</button><p class="mut">Il est attribué à l’établissement affiché en haut. Vous pouvez changer cela ensuite.</p></div><div class="card">',n=0;
 Object.keys(S.staff).map(function(k){return S.staff[k]}).filter(function(w){return w.mid==U.mid&&!w.x}).forEach(function(w){n++;h+='<div class="row"><div class="g"><b>'+esc(w.nom)+'</b> <span class="mut">@'+esc(w.id)+'</span><div>'+SH.map(function(s){return'<label class="lb"><input type="checkbox" '+((w.sh||[]).indexOf(s.id)>-1?"checked":"")+' onchange="tg(\''+w.id+'\',\''+s.id+'\')"> '+ic(s)+' '+esc(s.nom)+'</label>'}).join("")+'</div></div><button class="s sm" onclick="codeW(\''+w.id+'\')">Code</button><button class="r sm" onclick="delW(\''+w.id+'\')">Supprimer</button></div>'});
@@ -240,9 +283,9 @@ put("staff",{id:id,mid:U.mid,nom:n,pin:H(p),sh:cur?[cur]:[],c:Date.now()});rende
 function tg(wid,sid){var w=S.staff[wid],a=w.sh||[],i=a.indexOf(sid);if(i>-1)a.splice(i,1);else a.push(sid);w.sh=a;put("staff",w)}
 function codeW(id){var p=prompt("Nouveau code secret (4 caractères min.)");if(p===null)return;if(p.trim().length<4)return alert("Code trop court.");var w=S.staff[id];w.pin=H(p.trim());put("staff",w);alert("Code modifié.")}
 function delW(id){if(!confirm("Supprimer cet ouvrier ?"))return;var w=S.staff[id];w.x=1;put("staff",w);render()}
-function vEtab(){var h='<div class="card"><h2>Nouvel établissement</h2><select id="et"><option value="ph">💊 Pharmacie</option><option value="bq">🛒 Boutique</option></select><input id="en" placeholder="Nom (ex. Pharmacie de Garde)"><button onclick="addS(U.mid)">Créer</button></div><div class="card">';
-shopsOf(U.mid).forEach(function(s){h+='<div class="row"><div class="g"><b>'+ic(s)+' '+esc(s.nom)+'</b></div><button class="r sm" onclick="delS(\''+s.id+'\')">Supprimer</button></div>'});
-if(!shopsOf(U.mid).length)h+='<p class="mut">Aucun établissement.</p>';return h+'</div>'}
+function vEtab(){var L=shopsOf(U.mid),h='<div class="card"><h2>Nouvel établissement</h2><select id="et"><option value="ph">💊 Pharmacie</option><option value="bq">🛒 Boutique</option></select><input id="en" placeholder="Nom (ex. Pharmacie de Garde)"><button onclick="addS(U.mid)">Créer</button></div><div class="card"><h2>Mes établissements</h2>';
+L.forEach(function(s){h+='<div class="row"><div class="g"><b>'+ic(s)+' '+esc(s.nom)+'</b></div></div>'});
+if(!L.length)h+='<p class="mut">Aucun établissement.</p>';return h+'</div>'+(L.length?danger(L):'')}
 function vProfil(){var m=S.merchants[U.id];return'<div class="card"><h2>Mon identité</h2><input id="nm" value="'+esc(m.nom)+'"><input id="pn" value="'+esc(m.tel)+'" placeholder="Téléphone"><label class="mut">Photo</label><input type="file" accept="image/*" onchange="photo(this,function(d){var m=S.merchants[U.id];m.photo=d;U.photo=d;put(\'merchants\',m);render()})"><input id="np" type="password" inputmode="numeric" placeholder="Nouveau code (laisser vide pour ne pas changer)"><button onclick="saveProf()">Enregistrer</button></div>'}
 function saveProf(){var m=S.merchants[U.id],p=g("np").trim();if(p&&p.length<4)return alert("Code trop court.");m.nom=g("nm").trim()||m.nom;m.tel=g("pn");if(p)m.pin=H(p);U.nom=m.nom;put("merchants",m);render()}
 load();pull();
