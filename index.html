@@ -44,9 +44,18 @@ td.r,th.r{text-align:right}.pos{color:#0a8f5b;font-weight:700}.neg{color:#dc2626
 </style></head><body><div class="wrap" id="app"></div>
 <script src="config.js"></script>
 <script>
-var KEY="gestion_commerce_v2",VER="2.4",S,U=null,cur=null,tab="",q="",inv={},invDone=false,tmpPhoto="",polled=false,MODE="local",CFG=window.SB||{},DB=null,busy=false,Qc=null;
+var BV="2.5";
+function vc(a,b){a=String(a).split(".");b=String(b).split(".");for(var i=0;i<4;i++){var x=+a[i]||0,y=+b[i]||0;if(x!=y)return x>y?1:-1}return 0}
+(function(){try{var u=JSON.parse(localStorage.getItem("app_upd")||"null");
+if(u&&u.h&&vc(u.v,BV)>0&&!window.__ap){window.__sw=1;setTimeout(function(){window.__sw=0;window.__ap=1;document.open();document.write(u.h);document.close()},0)}}catch(e){}
+setTimeout(function(){if(window.__ap&&!window.__ok&&!window.__sw){try{localStorage.removeItem("app_upd")}catch(e){}location.reload()}},6000)})();
+</script>
+<script>
+if(window.__sw)throw "maj";
+var KEY="gestion_commerce_v2",S,U=null,cur=null,tab="",q="",inv={},invDone=false,tmpPhoto="",polled=false,MODE="local",CFG=window.SB||{},DB=null,busy=false,Qc=null;
 function fmt(n){return Number(n||0).toLocaleString("fr-FR")+" FC"}
-function $(h){document.getElementById("app").innerHTML=h+'<p class="mut" style="text-align:center;margin:18px 0">Application développée par les jeunes courageux<br>Version '+VER+'</p>'}
+function ub(){try{var u=JSON.parse(localStorage.getItem("app_upd")||"null");if(u&&vc(u.v,BV)>0)return'<div class="card" style="background:#fff7e0"><b>🔄 Nouvelle version '+u.v+' prête.</b> <button class="sm" onclick="location.reload()">Mettre à jour</button></div>'}catch(e){}return""}
+function $(h){document.getElementById("app").innerHTML=ub()+h+'<p class="mut" style="text-align:center;margin:18px 0">Application développée par les jeunes courageux<br>Version '+BV+'</p>'}
 function g(i){var e=document.getElementById(i);return e?e.value:""}
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
 function H(s){var a=3735928559,b=1103547991,i,c;for(i=0;i<s.length;i++){c=s.charCodeAt(i);a=Math.imul(a^c,2654435761);b=Math.imul(b^c,1597334677)}a=Math.imul(a^(a>>>16),2246822507)^Math.imul(b^(b>>>13),3266489909);return"h:"+(a>>>0).toString(36)+(b>>>0).toString(36)}
@@ -108,8 +117,16 @@ if(id=="admin"||S.merchants[id]||S.staff[id]){alert("Cet identifiant existe déj
 function mlist(){return Object.keys(S.merchants).map(function(k){return S.merchants[k]}).filter(function(m){return!m.x}).sort(function(a,b){return(a.c||0)-(b.c||0)})}
 function shopsOf(mid){return Object.keys(S.shops).map(function(k){return S.shops[k]}).filter(function(s){return!s.x&&(!mid||s.mid==mid)}).sort(function(a,b){return(a.c||0)-(b.c||0)})}
 /* ---------- administrateur ---------- */
-function rAdmin(){setAc("ad");if(["merchants","shops","apercu"].indexOf(tab)<0)tab="merchants";
-$(head()+tabs([["merchants","Commerçants"],["shops","Établissements"],["apercu","Aperçu"]])+({merchants:aMer,shops:aSh,apercu:aAp})[tab]());setTimeout(stat,0)}
+function updUrl(){var r=((S.admin&&S.admin.upd)||CFG.upd||"").trim();if(!r)return"";return r.indexOf("http")==0?r:"https://raw.githubusercontent.com/"+r.replace(/^\/+|\/+$/g,"")+"/main/index.html"}
+function chkUpd(man){var u=updUrl();if(!u){if(man)alert("Adresse de mise à jour non configurée.");return}
+if(!navigator.onLine){if(man)alert("Pas de connexion internet.");return}
+fetch(u+"?t="+Date.now(),{cache:"no-store"}).then(function(r){if(!r.ok)throw r.status;return r.text()}).then(function(h){var m=/var BV="([0-9.]+)"/.exec(h);if(!m||h.indexOf("</html>")<0||h.indexOf("function doLogin")<0)throw "fichier invalide";
+if(vc(m[1],BV)>0){localStorage.setItem("app_upd",JSON.stringify({v:m[1],h:h}));if(man){if(confirm("Version "+m[1]+" téléchargée. Redémarrer maintenant ?"))location.reload();else render()}else repaint()}else if(man)alert("Déjà à jour (version "+BV+").")}).catch(function(e){if(man)alert("Vérification impossible ("+e+"). Vérifiez l’adresse et que le dépôt GitHub est public.")})}
+function aMaj(){var a=S.admin;return'<div class="card"><h2>Mise à jour de l’application</h2><p>Version installée : <b>'+BV+'</b></p><label class="f">Dépôt GitHub (ex. Henock-banda/nom-du-depot)</label><input id="ur" value="'+esc(a.upd||"")+'" placeholder="Henock-banda/…" autocapitalize="none"><button class="s" onclick="saveUpd()">Enregistrer l’adresse</button></div><div class="card"><button onclick="chkUpd(1)">🔄 Vérifier et installer la mise à jour</button><p class="mut">Après avoir envoyé le nouveau index.html sur GitHub, attendez environ 5 minutes, puis touchez ce bouton. Les autres téléphones se mettent à jour tout seuls à l’ouverture.</p></div>'}
+function saveUpd(){S.admin.upd=g("ur").trim();S.admin.u=Date.now();save();queue("adm/cfg",S.admin);alert("Adresse enregistrée.")}
+
+function rAdmin(){setAc("ad");if(["merchants","shops","apercu","maj"].indexOf(tab)<0)tab="merchants";
+$(head()+tabs([["merchants","Commerçants"],["shops","Établissements"],["apercu","Aperçu"],["maj","Mise à jour"]])+({merchants:aMer,shops:aSh,apercu:aAp,maj:aMaj})[tab]());setTimeout(stat,0)}
 function aMer(){var h='<div class="card"><h2>Nouveau commerçant</h2><input id="mi" placeholder="Identifiant de connexion (ex. kuzata)" autocapitalize="none"><input id="mn" placeholder="Nom complet"><input id="mt" placeholder="Téléphone"><input id="mp" type="password" inputmode="numeric" placeholder="Code secret (4 caractères min.)"><button onclick="addM()">Créer et autoriser</button></div><div class="card">';
 mlist().forEach(function(m){h+='<div class="row"><div class="g"><b>'+esc(m.nom)+'</b> <span class="badge '+(m.actif?"ok":"no")+'">'+(m.actif?"Autorisé":"Suspendu")+'</span><div class="mut">@'+esc(m.id)+' · '+shopsOf(m.id).length+' établissement(s)</div></div><button class="s sm" onclick="togM(\''+m.id+'\')">'+(m.actif?"Suspendre":"Autoriser")+'</button><button class="s sm" onclick="codeM(\''+m.id+'\')">Code</button></div>'});
 if(!mlist().length)h+='<p class="mut">Aucun commerçant.</p>';return h+'</div>'}
@@ -230,5 +247,7 @@ function vProfil(){var m=S.merchants[U.id];return'<div class="card"><h2>Mon iden
 function saveProf(){var m=S.merchants[U.id],p=g("np").trim();if(p&&p.length<4)return alert("Code trop court.");m.nom=g("nm").trim()||m.nom;m.tel=g("pn");if(p)m.pin=H(p);U.nom=m.nom;put("merchants",m);render()}
 load();pull();
 if(S.admin)login();else{$('<div class="card"><h1>Chargement…</h1><p class="mut">Recherche des données en ligne.</p></div>');
+setTimeout(function(){chkUpd(0)},4000);setInterval(function(){chkUpd(0)},1800000);
 setTimeout(function(){if(S.admin||U)return;if(polled||MODE=="local")setup();else $('<div class="card"><h1>Connexion requise</h1><p class="mut">Premier démarrage : connectez-vous à internet pour récupérer les comptes.</p><button onclick="location.reload()">Réessayer</button></div>')},6000)}
+window.__ok=1;
 </script></body></html>
