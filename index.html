@@ -45,7 +45,7 @@ td.r,th.r{text-align:right}.pos{color:#0a8f5b;font-weight:700}.neg{color:#dc2626
 </style></head><body><div class="wrap" id="app"></div>
 <script src="config.js"></script>
 <script>
-var BV="2.6";
+var BV="2.7";
 function vc(a,b){a=String(a).split(".");b=String(b).split(".");for(var i=0;i<4;i++){var x=+a[i]||0,y=+b[i]||0;if(x!=y)return x>y?1:-1}return 0}
 (function(){try{var u=JSON.parse(localStorage.getItem("app_upd")||"null");
 if(u&&u.h&&vc(u.v,BV)>0&&!window.__ap){window.__sw=1;setTimeout(function(){window.__sw=0;window.__ap=1;document.open();document.write(u.h);document.close()},0)}}catch(e){}
@@ -68,8 +68,15 @@ function setAc(t){var c={bq:["#f59e0b","#f97316"],ad:["#6366f1","#8b5cf6"]}[t]||
 function pad(n){return String(n).padStart(4,"0")}
 function ic(s){return s.type=="bq"?"🛒":"💊"}
 function code(p){var s=S.shops[p.s];return(s&&s.type=="bq"?"BQ-":"PH-")+pad(p.n)}
-function qmap(){if(Qc)return Qc;Qc={};S.sales.forEach(function(x){var k=x.s+"_"+x.n,p=S.items[k];if(p&&x.d>=p.bt)Qc[k]=(Qc[k]||0)+(x.qd||1)});return Qc}
-function qty(p){return p.base-(qmap()[p.s+"_"+p.n]||0)}
+function qmap(){if(Qc)return Qc;Qc={g:{},d:{}};S.sales.forEach(function(x){var k=x.s+"_"+x.n,p=S.items[k];if(p&&x.d>=p.bt){Qc.g[k]=(Qc.g[k]||0)+(x.qg||0);Qc.d[k]=(Qc.d[k]||0)+(x.qg?(x.qd||0):(x.qd==null?1:x.qd))}});return Qc}
+function sd(p){return p.base-(qmap().d[p.s+"_"+p.n]||0)}
+function sg(p){return(p.bg||0)-(qmap().g[p.s+"_"+p.n]||0)}
+function AG(p){return p.ag!=null?p.ag:(p.ach||0)}
+function AD(p){return p.ad!=null?p.ad:(p.ach||0)/(p.par||1)}
+function empty(p){return sg(p)<=0&&sd(p)<=0}
+function val(p){return sg(p)*(p.gros||0)+sd(p)*(p.detail||0)}
+function qtxt(g,q){var a=[];if(g)a.push(g+" gros");if(q)a.push(q+" détail");return a.join(" + ")||"—"}
+function qty(p){return sd(p)}
 function photo(inp,cb){var f=inp.files[0];if(!f)return;var r=new FileReader();r.onload=function(){var im=new Image();im.onload=function(){var c=document.createElement("canvas"),s=Math.min(1,240/Math.max(im.width,im.height));c.width=im.width*s;c.height=im.height*s;c.getContext("2d").drawImage(im,0,0,c.width,c.height);cb(c.toDataURL("image/jpeg",.7))};im.src=r.result};r.readAsDataURL(f)}
 /* ---------- synchronisation ---------- */
 function queue(path,v){S.out=S.out.filter(function(o){return o.p!=path});S.out.push({p:path,v:v});save();flush()}
@@ -160,38 +167,51 @@ if(!sh&&need[tab])h+='<div class="card"><p class="mut">Aucun établissement ne v
 else h+=({tableau:vTableau,vendre:vVendre,produits:vProduits,inventaire:vInv,ventes:vVentes,bilan:vBilan,rapports:vRapports,rapport:vRap,salaires:vSal,depenses:vDep,ouvriers:vOuv,etab:vEtab,profil:vProfil})[tab]();$(h);setTimeout(stat,0);setTimeout(sigInit,0)}
 function shopItems(){return Object.keys(S.items).map(function(k){return S.items[k]}).filter(function(p){return p.s==cur})}
 function list(){var s=q.toLowerCase();return shopItems().filter(function(p){return!s||p.nom.toLowerCase().indexOf(s)>-1||code(p).toLowerCase().indexOf(s)>-1||String(p.n)==s}).sort(function(a,b){return a.n-b.n})}
-function stk(p){var q=qty(p),r=p.par||1;if(r<=1)return q+" pièce(s)";var c=Math.floor(q/r);return c+" "+(p.un||"carton")+(c>1?"s":"")+" + "+(q-c*r)+" détail"}
-function mkSale(p,qd,prix,by){return{id:"s"+Date.now()+Math.random().toString(36).slice(2,6),s:p.s,n:p.n,nom:p.nom,prix:prix,cost:Math.round((p.ach||0)/(p.par||1)*qd*100)/100,qd:qd,by:by,wid:U.id,d:Date.now()}}
+function stk(p){return sg(p)+" gros · "+sd(p)+" détail"}
+function mkSale(p,q,g,prix,by){return{id:"s"+Date.now()+Math.random().toString(36).slice(2,6),s:p.s,n:p.n,nom:p.nom,prix:prix,cost:Math.round((g*AG(p)+q*AD(p))*100)/100,qd:q,qg:g,by:by,wid:U.id,d:Date.now()}}
 function sb(){return'<input placeholder="Chercher par nom ou numéro…" value="'+esc(q)+'" oninput="q=this.value;keep()">'}
 function keep(){var el=document.activeElement,pos=el.selectionStart;render();var i=document.querySelector("input[placeholder^=Chercher]");if(i){i.focus();i.setSelectionRange(pos,pos)}}
-function vVendre(){var L=list(),h='<div class="card">'+sb()+'<div class="mut">Cochez un produit pour l’enregistrer comme vendu (1 pièce). Le bouton « Gros » vend 1 unité en gros.</div>';
-L.forEach(function(p){var Q=qty(p),s=Q<=0,r=p.par||1;h+='<div class="row"><input type="checkbox" '+(s?"disabled":"")+' onchange="sell('+p.n+')"><div class="g '+(s?"sold":"")+'"><b>'+esc(p.nom)+'</b><div class="mut"><span class="num">'+code(p)+'</span> Stock : '+stk(p)+'</div></div><div style="text-align:right"><b>'+fmt(p.detail)+'</b>'+(r>1&&p.gros&&Q>=r?'<br><button class="s sm" onclick="sell('+p.n+',1)">Gros '+fmt(p.gros)+'</button>':'')+'</div></div>'});
+function vVendre(){var L=list(),h='<div class="card">'+sb()+'<div class="mut">Cochez un produit pour vendre 1 pièce au détail. Le bouton « Gros » vend 1 unité en gros.</div>';
+L.forEach(function(p){var D=sd(p),G=sg(p);h+='<div class="row"><input type="checkbox" '+(D<=0?"disabled":"")+' onchange="sell('+p.n+')"><div class="g '+(D<=0&&G<=0?"sold":"")+'"><b>'+esc(p.nom)+'</b><div class="mut"><span class="num">'+code(p)+'</span> '+stk(p)+'</div></div><div style="text-align:right"><b>'+fmt(p.detail)+'</b>'+(G>0&&p.gros?'<br><button class="s sm" onclick="sell('+p.n+',1)">Gros '+fmt(p.gros)+'</button>':'')+'</div></div>'});
 if(!L.length)h+='<p class="mut">Aucun produit.</p>';return h+'</div>'}
-function sell(n,gr){var p=S.items[cur+"_"+n];if(!p)return;var qd=gr?(p.par||1):1;if(qty(p)<qd)return;var x=mkSale(p,qd,gr?p.gros:p.detail,U.role=="M"?"Commerçant":U.nom);S.sales.push(x);queue("ventes/"+x.id,x);render()}
-function vProduits(){var L=list(),h='<div class="card"><h2>Ajouter / ré-ajouter un produit</h2><label class="f">Nom du produit</label><input id="pn_"><div class="two"><div><label class="f">Unité en gros (carton, sec, ram…)</label><input id="pu" list="uns" placeholder="carton"></div><div><label class="f">Pièces dans 1 unité</label><input id="pp" type="number" placeholder="1"></div></div><datalist id="uns"><option value="carton"><option value="sec"><option value="ram"><option value="sachet"></datalist><div class="two"><div><label class="f">Unités en gros reçues</label><input id="pq" type="number"></div><div><label class="f">Pièces en détail en plus</label><input id="pr" type="number"></div></div><label class="f">💰 Prix d’achat (1 unité en gros)</label><input id="pa" type="number"><div class="two"><div><label class="f">Prix de vente en gros</label><input id="pg" type="number"></div><div><label class="f">Prix de vente en détail (1 pièce)</label><input id="pd" type="number"></div></div><button onclick="addP()">Enregistrer</button><p class="mut">Si le nom existe déjà, le produit garde son numéro et le stock augmente.</p></div><div class="card">'+sb();
-L.forEach(function(p){h+='<div class="row"><div class="g"><b>'+esc(p.nom)+'</b><div class="mut"><span class="num">'+code(p)+'</span> Achat '+fmt(p.ach)+' · Gros '+fmt(p.gros)+' · Détail '+fmt(p.detail)+'<br>Stock : '+stk(p)+(p.par>1?' ('+p.par+' pièces par '+esc(p.un||"carton")+')':'')+'</div></div><button class="s sm" onclick="editP('+p.n+')">Modifier</button></div>'});
+function sell(n,gr){var p=S.items[cur+"_"+n];if(!p)return;var by=U.role=="M"?"Commerçant":U.nom,x;if(gr){if(sg(p)<1)return;x=mkSale(p,0,1,p.gros||0,by)}else{if(sd(p)<1)return;x=mkSale(p,1,0,p.detail,by)}S.sales.push(x);queue("ventes/"+x.id,x);render()}
+var pf=null;
+function nextN(){var sh=S.shops[cur],n=(sh.cnt||0)+1;while(S.items[cur+"_"+n])n++;return n}
+function startPf(m,n){pf={mode:m,n:n};render();if(window.scrollTo)window.scrollTo(0,0)}
+function pform(){var m=pf?pf.mode:"new",p=pf?S.items[cur+"_"+pf.n]:null,nw=m=="new",ad=m=="add",pre=S.shops[cur]&&S.shops[cur].type=="bq"?"BQ-":"PH-",
+f=function(id,l,v,t){if(typeof v=="number")v=Math.round(v*100)/100;return'<label class="f">'+l+'</label><input id="'+id+'" '+(t||'type="number"')+' value="'+esc(v==null?"":v)+'">'};
+return'<div class="card"><h2>'+(nw?"Nouveau produit":ad?"Ajouter du stock":"Modifier le produit")+'</h2><label class="f">N° produit</label><input value="'+(nw?pre+pad(nextN())+" (automatique)":code(p)+" (ne change jamais)")+'" disabled>'+f("f_nom","Nom du produit",p?p.nom:"",'type="text"')+
+f("f_qg",ad?"Quantité en gros à ajouter":"Quantité en gros",nw||ad?"":sg(p))+f("f_qd",ad?"Quantité en détail à ajouter":"Quantité en détail",nw||ad?"":sd(p))+
+f("f_ag","Prix d’achat en gros",p?AG(p):"")+f("f_ad","Prix d’achat en détail",p?AD(p):"")+f("f_pg","Prix de vente en gros",p?p.gros:"")+f("f_pd","Prix de vente en détail",p?p.detail:"")+
+'<button onclick="saveP()">Valider</button>'+(pf?' <button class="s" onclick="pf=null;render()">Annuler</button>':'')+(ad?'<p class="mut">Si vous changez un prix ici, le prix du produit change aussi.</p>':'')+'</div>'}
+function vProduits(){var L=list(),h=pform()+'<div class="card"><h2>Mes produits</h2>'+sb();
+L.forEach(function(p){h+='<div class="row"><div class="g"><b>'+esc(p.nom)+'</b><div class="mut"><span class="num">'+code(p)+'</span> Stock : '+stk(p)+'<br>Achat : '+fmt(AG(p))+' / '+fmt(AD(p))+'<br>Vente : '+fmt(p.gros)+' / '+fmt(p.detail)+' <i>(gros / détail)</i></div></div><button class="sm" onclick="startPf(\'add\','+p.n+')">Ajouter</button><button class="s sm" onclick="startPf(\'edit\','+p.n+')">Modifier</button></div>'});
 if(!L.length)h+='<p class="mut">Aucun produit.</p>';return h+'</div>'}
-function addP(){var nom=g("pn_").trim(),un=g("pu").trim(),pp=Math.floor(+g("pp"))||0,par=Math.max(1,pp),c=+g("pq")||0,ex2=+g("pr")||0,ach=+g("pa")||0,gr=+g("pg")||0,de=+g("pd");if(!nom||!de)return alert("Nom et prix en détail requis.");
-var ex=list().filter(function(p){return p.nom.toLowerCase()==nom.toLowerCase()})[0],t=Date.now();
-if(ex){if(pp)ex.par=par;if(un)ex.un=un;var qd=c*(ex.par||1)+ex2;ex.base=qty(ex)+qd;ex.bt=t+1;if(ach)ex.ach=ach;if(gr)ex.gros=gr;ex.detail=de}
-else{var sh=S.shops[cur],n=(sh.cnt||0)+1;while(S.items[cur+"_"+n])n++;sh.cnt=n;put("shops",sh);var qd=c*par+ex2;ex={id:cur+"_"+n,s:cur,n:n,nom:nom,un:un||"carton",par:par,ach:ach,gros:gr,detail:de,base:qd,bt:t+1}}
-put("items",ex);
-if(qd>0){var a={id:"a"+t+Math.random().toString(36).slice(2,5),s:cur,n:ex.n,nom:ex.nom,qd:qd,cout:Math.round((ex.ach||0)/(ex.par||1)*qd*100)/100,by:U.nom,d:t};S.achats.push(a);queue("achats/"+a.id,a)}
-render()}
-function editP(n){var p=S.items[cur+"_"+n],f=function(l,v){return prompt(l,v==null?"":v)};
-var a=f("Nom",p.nom);if(a===null)return;var b=f("Prix d’achat (par unité en gros)",p.ach||0);if(b===null)return;var c=f("Prix en gros (par unité en gros)",p.gros||0);if(c===null)return;var d=f("Prix en détail (par pièce)",p.detail);if(d===null)return;var e=f("Nombre de pièces dans 1 "+(p.un||"carton"),p.par||1);if(e===null)return;var st=f("Stock total en pièces (détail)",qty(p));if(st===null)return;
-p.nom=a||p.nom;p.ach=+b;p.gros=+c;p.detail=+d;p.par=Math.max(1,Math.floor(+e)||1);p.base=+st;p.bt=Date.now()+1;put("items",p);render()}
-function vInv(){var L=list().filter(function(p){return qty(p)>0}),h='<div class="card"><h2>Inventaire</h2><p class="mut">Cochez les produits <b>présents</b>. Les produits non cochés sont considérés entièrement vendus.</p>';
+function pv(id,old){var v=g(id).trim();return v===""?old:(+v||0)}
+function saveP(){var m=pf?pf.mode:"new",p=pf?S.items[cur+"_"+pf.n]:null,nom=g("f_nom").trim(),qg=+g("f_qg")||0,qd=+g("f_qd")||0,t=Date.now();
+if(!nom)return alert("Le nom du produit est requis.");
+if(m=="new"){var ex=shopItems().filter(function(z){return z.nom.toLowerCase()==nom.toLowerCase()})[0];if(ex){p=ex;m="add"}}
+var ag=pv("f_ag",p?AG(p):0),ad=pv("f_ad",p?AD(p):0),pg=pv("f_pg",p?p.gros||0:0),pd=pv("f_pd",p?p.detail:0);
+if(!(pd>0)&&!(pg>0))return alert("Indiquez au moins un prix de vente.");
+if(!p){var n=nextN(),sh=S.shops[cur];sh.cnt=n;put("shops",sh);p={id:cur+"_"+n,s:cur,n:n,nom:nom,bg:qg,base:qd,bt:t+1}}
+else if(m=="add"){var g0=sg(p)+qg,d0=sd(p)+qd;p.bg=g0;p.base=d0;p.bt=t+1}
+else{p.nom=nom;p.bg=qg;p.base=qd;p.bt=t+1}
+p.ag=ag;p.ad=ad;p.ach=ag;p.gros=pg;p.detail=pd;put("items",p);
+if(m!="edit"&&(qg>0||qd>0)){var a={id:"a"+t+Math.random().toString(36).slice(2,5),s:cur,n:p.n,nom:p.nom,qg:qg,qd:qd,cout:Math.round((qg*ag+qd*ad)*100)/100,by:U.nom,d:t};S.achats.push(a);queue("achats/"+a.id,a)}
+pf=null;render()}
+
+
+function vInv(){var L=list().filter(function(p){return!empty(p)}),h='<div class="card"><h2>Inventaire</h2><p class="mut">Cochez les produits <b>présents</b>. Les produits non cochés sont considérés entièrement vendus.</p>';
 if(!invDone){L.forEach(function(p){h+='<div class="row"><input type="checkbox" '+(inv[p.n]?"checked":"")+' onchange="inv['+p.n+']=this.checked"><div class="g"><b>'+esc(p.nom)+'</b><div class="mut"><span class="num">'+code(p)+'</span> '+stk(p)+'</div></div></div>'});
 return h+(L.length?'<button onclick="invDone=true;render()">Calculer les ventes</button>':'<p class="mut">Aucun produit en stock.</p>')+'</div>'}
-var M=L.filter(function(p){return!inv[p.n]}),tot=0;M.forEach(function(p){tot+=qty(p)*p.detail});
-h+='<h2>Produits vendus</h2>';M.forEach(function(p){h+='<div class="row"><div class="g"><b>'+esc(p.nom)+'</b><div class="mut">'+code(p)+' · '+qty(p)+' pièce(s)</div></div><b>'+fmt(qty(p)*p.detail)+'</b></div>'});
+var M=L.filter(function(p){return!inv[p.n]}),tot=0;M.forEach(function(p){tot+=val(p)});
+h+='<h2>Produits vendus</h2>';M.forEach(function(p){h+='<div class="row"><div class="g"><b>'+esc(p.nom)+'</b><div class="mut">'+code(p)+' · '+stk(p)+'</div></div><b>'+fmt(val(p))+'</b></div>'});
 if(!M.length)h+='<p class="mut">Rien de manquant.</p>';
 return h+'<p class="tot">Total : '+fmt(tot)+'</p><button class="s" onclick="invDone=false;render()">Refaire</button> <button onclick="applyInv()">Retirer du stock</button></div>'}
-function applyInv(){if(!confirm("Mettre le stock des produits non présents à 0 ?"))return;list().forEach(function(p){var Q=qty(p);if(Q>0&&!inv[p.n]){var x=mkSale(p,Q,Q*p.detail,"Inventaire");S.sales.push(x);queue("ventes/"+x.id,x);p.base=0;p.bt=x.d+1;put("items",p)}});inv={};invDone=false;render()}
+function applyInv(){if(!confirm("Mettre le stock des produits non présents à 0 ?"))return;list().forEach(function(p){if(!empty(p)&&!inv[p.n]){var x=mkSale(p,Math.max(0,sd(p)),Math.max(0,sg(p)),val(p),"Inventaire");S.sales.push(x);queue("ventes/"+x.id,x);p.bg=0;p.base=0;p.bt=x.d+1;put("items",p)}});inv={};invDone=false;render()}
 function vVentes(){var M=U.role=="M",L=S.sales.filter(function(s){return s.s==cur&&(M||s.wid==U.id)}).sort(function(a,b){return b.d-a.d}),tot=0,ben=0;L.forEach(function(s){tot+=s.prix;ben+=s.prix-(s.cost||0)});
 var h='<div class="card"><p class="tot">Total ventes : '+fmt(tot)+'</p>'+(M?'<div class="mut">Marge brute estimée : '+fmt(ben)+'</div>':'')+'</div><div class="card">';
-L.slice(0,200).forEach(function(s){var d=new Date(s.d),it=S.items[s.s+"_"+s.n];h+='<div class="row"><div class="g"><b>'+esc(s.nom)+'</b><div class="mut">'+(it?code(it):"")+' · '+(s.qd||1)+' pièce(s) · '+esc(s.by)+' · '+d.toLocaleDateString("fr-FR")+' '+d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})+'</div></div><b>'+fmt(s.prix)+'</b></div>'});
+L.slice(0,200).forEach(function(s){var d=new Date(s.d),it=S.items[s.s+"_"+s.n];h+='<div class="row"><div class="g"><b>'+esc(s.nom)+'</b><div class="mut">'+(it?code(it):"")+' · '+qtxt(s.qg||0,s.qg?(s.qd||0):(s.qd==null?1:s.qd))+' · '+esc(s.by)+' · '+d.toLocaleDateString("fr-FR")+' '+d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})+'</div></div><b>'+fmt(s.prix)+'</b></div>'});
 if(!L.length)h+='<p class="mut">Aucune vente.</p>';return h+'</div>'}
 var bs="all",rp={step:"e",m:{},decl:""};
 function t0(){var n=new Date();return new Date(n.getFullYear(),n.getMonth(),n.getDate()).getTime()}
@@ -201,46 +221,48 @@ var h='<div class="card"><select onchange="bs=this.value;render()"><option value
 per().forEach(function(a){var v=0,c=0,b=0;S.sales.forEach(function(x){if(ids[x.s]&&x.d>=a[1]){v+=x.prix;c+=x.cost||0}});S.achats.forEach(function(x){if(ids[x.s]&&x.d>=a[1])b+=x.cout||0});
 h+='<div class="row"><div class="g"><b>'+a[0]+'</b></div><div style="text-align:right">Vendu <b>'+fmt(v)+'</b><br><span class="mut">Acheté '+fmt(b)+' · Marge '+fmt(v-c)+'</span></div></div>'});
 h+='</div><div class="card"><h2>Stock restant</h2>';var tA=0,tV=0,n=0;
-Object.keys(S.items).map(function(k){return S.items[k]}).filter(function(p){return ids[p.s]&&qty(p)>0}).sort(function(a,b){return a.s<b.s?-1:a.s>b.s?1:a.n-b.n}).forEach(function(p){var Q=qty(p),a=Q*(p.ach||0)/(p.par||1),v=Q*p.detail;tA+=a;tV+=v;n++;
-h+='<div class="row"><div class="g"><b>'+esc(p.nom)+'</b><div class="mut">'+code(p)+' · '+stk(p)+' · '+Q+' pièce(s)'+(bs=="all"&&S.shops[p.s]?' · '+esc(S.shops[p.s].nom):'')+'</div></div><div style="text-align:right" class="mut">Achat '+fmt(a)+'<br>Vente '+fmt(v)+'</div></div>'});
-if(!n)h+='<p class="mut">Aucun stock.</p>';return h+'<p class="tot">Valeur du stock</p><div>À l’achat : <b>'+fmt(tA)+'</b></div><div>À la vente (détail) : <b>'+fmt(tV)+'</b></div></div>'}
+Object.keys(S.items).map(function(k){return S.items[k]}).filter(function(p){return ids[p.s]&&!empty(p)}).sort(function(a,b){return a.s<b.s?-1:a.s>b.s?1:a.n-b.n}).forEach(function(p){var a=sg(p)*AG(p)+sd(p)*AD(p),v=val(p);tA+=a;tV+=v;n++;
+h+='<div class="row"><div class="g"><b>'+esc(p.nom)+'</b><div class="mut">'+code(p)+' · '+stk(p)+(bs=="all"&&S.shops[p.s]?' · '+esc(S.shops[p.s].nom):'')+'</div></div><div style="text-align:right" class="mut">Achat '+fmt(a)+'<br>Vente '+fmt(v)+'</div></div>'});
+if(!n)h+='<p class="mut">Aucun stock.</p>';return h+'<p class="tot">Valeur du stock</p><div>À l’achat : <b>'+fmt(tA)+'</b></div><div>À la vente : <b>'+fmt(tV)+'</b></div></div>'}
 function vRapports(){var ids={};shopsOf(U.mid).forEach(function(s){ids[s.id]=1});var L=S.reports.filter(function(r){return ids[r.s]}).sort(function(a,b){return b.d-a.d}),h='<div class="card"><h2>Rapports des ouvriers</h2>';
-L.slice(0,100).forEach(function(r){var d=new Date(r.d);h+='<details style="padding:9px 0;border-bottom:1px solid var(--bd)"><summary><b>'+esc(r.by)+'</b> · '+d.toLocaleDateString("fr-FR")+' '+d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})+' <b style="float:right">'+fmt(r.total)+'</b><div class="mut">'+esc((S.shops[r.s]||{}).nom||"")+(r.decl?' · Total déclaré '+fmt(r.decl):'')+'</div></summary>'+r.lines.map(function(l){return'<div class="mut">'+esc(l.nom)+' × '+l.q+' = '+fmt(l.m)+'</div>'}).join("")+'</details>'});
+L.slice(0,100).forEach(function(r){var d=new Date(r.d);h+='<details style="padding:9px 0;border-bottom:1px solid var(--bd)"><summary><b>'+esc(r.by)+'</b> · '+d.toLocaleDateString("fr-FR")+' '+d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})+' <b style="float:right">'+fmt(r.total)+'</b><div class="mut">'+esc((S.shops[r.s]||{}).nom||"")+(r.decl?' · Total déclaré '+fmt(r.decl):'')+'</div></summary>'+r.lines.map(function(l){return'<div class="mut">'+esc(l.nom)+' · '+qtxt(l.g||0,l.q)+' = '+fmt(l.m)+'</div>'}).join("")+'</details>'});
 if(!L.length)h+='<p class="mut">Aucun rapport reçu.</p>';return h+'</div>'}
-function recToday(){var T={};S.sales.forEach(function(x){if(x.s==cur&&x.wid==U.id&&x.d>=t0()){var t=T[x.n]||(T[x.n]={n:x.n,nom:x.nom,q:0,m:0});t.q+=x.qd||1;t.m+=x.prix}});return Object.keys(T).map(function(k){return T[k]})}
+function recToday(){var T={};S.sales.forEach(function(x){if(x.s==cur&&x.wid==U.id&&x.d>=t0()){var k=x.n||"adj",t=T[k]||(T[k]={n:x.n,nom:x.nom,q:0,g:0,m:0});t.q+=x.qg?(x.qd||0):(x.qd==null?1:x.qd);t.g+=x.qg||0;t.m+=x.prix}});return Object.keys(T).map(function(k){return T[k]})}
 function rpS(n,f,v){var m=rp.m[n]||(rp.m[n]={});m[f]=v}
-function rapLines(){var man=[];shopItems().forEach(function(p){var m=rp.m[p.n];if(!m)return;var q=+m.q||0,a=+m.m||0;if(!(m.c||q>0||a>0))return;q=q||1;man.push({n:p.n,nom:p.nom,q:q,m:a||q*p.detail})});return{rec:recToday(),man:man}}
+function rapLines(){var man=[];shopItems().forEach(function(p){var m=rp.m[p.n];if(!m)return;var q=+m.q||0,a=+m.m||0;if(!(m.c||q>0||a>0))return;q=q||1;man.push({n:p.n,nom:p.nom,q:q,g:0,m:a||q*p.detail})});return{rec:recToday(),man:man}}
 function vRap(){return rp.step=="s"?rapSum():rapEdit()}
-function rapEdit(){var R=recToday(),n=0,tot=0;R.forEach(function(l){n+=l.q;tot+=l.m});
-var h='<div class="card"><h2>Rapport du jour</h2><p>Ventes déjà enregistrées : <b>'+n+'</b> pièce(s) · <b>'+fmt(tot)+'</b></p><div class="mut">Les produits cochés dans « Vendre » sont déjà comptés.</div></div><div class="card"><h2>Autres marchandises vendues (facultatif)</h2><div class="mut">Cochez, puis indiquez la quantité et le montant si vous voulez. Sans montant, le prix de détail est utilisé.</div>'+sb();
+function rapEdit(){var R=recToday(),tot=0;R.forEach(function(l){tot+=l.m});
+var h='<div class="card"><h2>Rapport du jour</h2><label class="f">💰 Montant total vendu aujourd’hui (FC)</label><input type="number" placeholder="Ex. 150000" value="'+esc(rp.decl)+'" oninput="rp.decl=this.value"><div class="mut">Déjà enregistré dans « Vendre » : <b>'+fmt(tot)+'</b>. Si votre total est plus grand, la différence est ajoutée aux ventes du jour.</div></div><div class="card"><h2>Produits vendus (facultatif)</h2><div class="mut">Cochez les produits vendus, avec la quantité et le montant si vous voulez. Sans montant, le prix de détail est utilisé.</div>'+sb();
 list().forEach(function(p){var m=rp.m[p.n]||{};h+='<div class="row" style="flex-wrap:nowrap"><input type="checkbox" '+(m.c?"checked":"")+' onchange="rpS('+p.n+',\'c\',this.checked)"><div class="g"><b>'+esc(p.nom)+'</b><div class="mut">'+code(p)+' · '+fmt(p.detail)+'</div></div><input style="width:62px;margin:0" type="number" placeholder="Qté" value="'+esc(m.q||"")+'" oninput="rpS('+p.n+',\'q\',this.value)"><input style="width:92px;margin:0" type="number" placeholder="Montant" value="'+esc(m.m||"")+'" oninput="rpS('+p.n+',\'m\',this.value)"></div>'});
-h+='</div><div class="card"><input type="number" placeholder="Total du jour (facultatif)" value="'+esc(rp.decl)+'" oninput="rp.decl=this.value"><button onclick="rp.step=\'s\';render()">Envoyer mon rapport</button></div>';
+h+='</div><div class="card"><button onclick="rp.step=\'s\';render()">Envoyer mon rapport</button></div>';
 var M=S.reports.filter(function(r){return r.wid==U.id}).sort(function(a,b){return b.d-a.d}).slice(0,5);
 if(M.length){h+='<div class="card"><h2>Mes derniers rapports</h2>';M.forEach(function(r){h+='<div class="row"><div class="g">'+new Date(r.d).toLocaleDateString("fr-FR")+'</div><b>'+fmt(r.total)+'</b></div>'});h+='</div>'}return h}
-function rapSum(){var R=rapLines(),all=R.rec.concat(R.man),tot=0;all.forEach(function(l){tot+=l.m});
+function rapSum(){var R=rapLines(),all=R.rec.concat(R.man),comp=0,D=+rp.decl||0;all.forEach(function(l){comp+=l.m});
 var h='<div class="card"><h2>Rapport synthétique</h2><div class="mut">'+esc(U.nom)+' · '+new Date().toLocaleDateString("fr-FR")+' · '+esc((S.shops[cur]||{}).nom||"")+'</div>';
-all.forEach(function(l){h+='<div class="row"><div class="g"><b>'+esc(l.nom)+'</b><div class="mut">'+l.q+' pièce(s)</div></div><b>'+fmt(l.m)+'</b></div>'});
-if(!all.length)h+='<p class="mut">Aucune marchandise.</p>';
-return h+'<p class="tot">Total : '+fmt(tot)+'</p>'+(+rp.decl?'<p>Total déclaré : <b>'+fmt(+rp.decl)+'</b></p>':'')+'<button class="s" onclick="rp.step=\'e\';render()">Modifier</button> <button onclick="sendRp()">Envoyer à mon patron</button></div>'}
-function sendRp(){var R=rapLines(),all=R.rec.concat(R.man),tot=0;if(!all.length&&!(+rp.decl))return alert("Rien à envoyer.");all.forEach(function(l){tot+=l.m});
-R.man.forEach(function(l){var p=S.items[cur+"_"+l.n],x=mkSale(p,l.q,l.m,U.nom);S.sales.push(x);queue("ventes/"+x.id,x)});
-var r={id:"r"+Date.now()+Math.random().toString(36).slice(2,5),s:cur,wid:U.id,by:U.nom,d:Date.now(),lines:all.map(function(l){return{n:l.n,nom:l.nom,q:l.q,m:l.m}}),total:tot,decl:+rp.decl||0};S.reports.push(r);queue("rapports/"+r.id,r);rp={step:"e",m:{},decl:""};alert("Rapport envoyé à votre patron.");render()}
-
+all.forEach(function(l){h+='<div class="row"><div class="g"><b>'+esc(l.nom)+'</b><div class="mut">'+qtxt(l.g,l.q)+'</div></div><b>'+fmt(l.m)+'</b></div>'});
+if(!all.length)h+='<p class="mut">Aucun produit détaillé.</p>';
+h+='<div class="row"><div class="g">Total des produits</div><b>'+fmt(comp)+'</b></div>'+(D>0?'<div class="row"><div class="g">Total déclaré</div><b>'+fmt(D)+'</b></div>':'');
+if(D>0&&D<comp)h+='<p class="mut">Le total déclaré est inférieur aux ventes enregistrées : le total retenu sera '+fmt(comp)+'.</p>';
+return h+'<p class="tot">Total retenu : '+fmt(Math.max(comp,D))+'</p><button class="s" onclick="rp.step=\'e\';render()">Modifier</button> <button onclick="sendRp()">Envoyer à mon patron</button></div>'}
+function sendRp(){var R=rapLines(),all=R.rec.concat(R.man),comp=0,D=+rp.decl||0;if(!all.length&&!(D>0))return alert("Rien à envoyer.");all.forEach(function(l){comp+=l.m});
+R.man.forEach(function(l){var p=S.items[cur+"_"+l.n],x=mkSale(p,l.q,0,l.m,U.nom);S.sales.push(x);queue("ventes/"+x.id,x)});
+var diff=D-comp;if(diff>0){var a={id:"s"+Date.now()+Math.random().toString(36).slice(2,6),s:cur,n:0,nom:"Ventes du jour (total déclaré)",prix:diff,cost:0,qd:0,qg:0,by:U.nom,wid:U.id,d:Date.now(),adj:1};S.sales.push(a);queue("ventes/"+a.id,a);all.push({n:0,nom:a.nom,q:0,g:0,m:diff})}
+var tot=comp+(diff>0?diff:0),r={id:"r"+Date.now()+Math.random().toString(36).slice(2,5),s:cur,wid:U.id,by:U.nom,d:Date.now(),lines:all.map(function(l){return{n:l.n,nom:l.nom,q:l.q,g:l.g||0,m:l.m}}),total:tot,decl:D};S.reports.push(r);queue("rapports/"+r.id,r);rp={step:"e",m:{},decl:""};alert("Rapport envoyé à votre patron.");render()}
 var tb="d";
 function nf(n){return Number(n||0).toLocaleString("fr-FR",{maximumFractionDigits:2})}
 function vTableau(){var v0=0,vt=0,ct=0,bt=0,sv=0,rup=0,d0=t0();
 S.sales.forEach(function(x){if(x.s!=cur)return;vt+=x.prix;ct+=x.cost||0;if(x.d>=d0)v0+=x.prix});
 S.achats.forEach(function(x){if(x.s==cur)bt+=x.cout||0});
-shopItems().forEach(function(p){var Q=qty(p);if(Q>0)sv+=Q*(p.ach||0)/(p.par||1);else rup++});
+shopItems().forEach(function(p){sv+=sg(p)*AG(p)+sd(p)*AD(p);if(empty(p))rup++});
 var h='<div class="kpis"><div class="kpi"><small>Vendu aujourd’hui</small><b>'+fmt(v0)+'</b></div><div class="kpi b"><small>Vendu au total</small><b>'+fmt(vt)+'</b></div><div class="kpi p"><small>Bénéfice total</small><b>'+fmt(vt-ct)+'</b></div><div class="kpi o"><small>Acheté au total</small><b>'+fmt(bt)+'</b></div><div class="kpi"><small>Valeur du stock (achat)</small><b>'+fmt(sv)+'</b></div><div class="kpi o"><small>Produits épuisés</small><b>'+rup+'</b></div></div>';
+h+='<div class="card"><h2>Ventes totales</h2>';per().forEach(function(a){var v=0;S.sales.forEach(function(x){if(x.s==cur&&x.d>=a[1])v+=x.prix});h+='<div class="row"><div class="g">'+a[0]+'</div><b>'+fmt(v)+'</b></div>'});h+='</div>';
 var g=tb=="g",m0=new Date(new Date().getFullYear(),new Date().getMonth(),1).getTime(),ids={},vm=0,cm=0,dm=0,sm=0;shopsOf(U.mid).forEach(function(z){ids[z.id]=1});
 S.sales.forEach(function(x){if(ids[x.s]&&x.d>=m0){vm+=x.prix;cm+=x.cost||0}});S.depenses.forEach(function(x){if(x.mid==U.mid&&x.d>=m0)dm+=x.montant});S.paies.forEach(function(x){if(x.mid==U.mid&&x.d>=m0)sm+=x.montant});
 var net=vm-cm-dm-sm;h+='<div class="card"><h2>Ce mois-ci (tous mes établissements)</h2><div class="row"><div class="g">Vendu</div><b>'+fmt(vm)+'</b></div><div class="row"><div class="g">Marge sur les ventes</div><b>'+fmt(vm-cm)+'</b></div><div class="row"><div class="g">Dépenses</div><b>'+fmt(dm)+'</b></div><div class="row"><div class="g">Salaires payés</div><b>'+fmt(sm)+'</b></div><div class="row"><div class="g"><b>Bénéfice net</b></div><b class="'+(net>=0?"pos":"neg")+'">'+fmt(net)+'</b></div></div>';
-h+='<div class="card"><h2>Tableau des produits</h2><div class="tabs"><button class="'+(g?"":"on")+'" onclick="tb=\'d\';render()">Au détail (1 pièce)</button><button class="'+(g?"on":"")+'" onclick="tb=\'g\';render()">En gros (1 unité)</button></div>'+sb()+'<div class="mut" style="margin-bottom:6px">Montants en FC, '+(g?"par unité en gros":"par pièce")+'.</div><div class="tw"><table><tr><th>N°</th><th>Produit</th><th class="r">Prix d’achat</th><th class="r">Prix de vente</th><th class="r">Bénéfice</th></tr>';
-list().forEach(function(p){var a=g?(p.ach||0):(p.ach||0)/(p.par||1),v=g?(p.gros||0):p.detail,b=v-a,ok=!g||p.gros>0;
+h+='<div class="card"><h2>Tableau des produits</h2><div class="tabs"><button class="'+(g?"":"on")+'" onclick="tb=\'d\';render()">Au détail</button><button class="'+(g?"on":"")+'" onclick="tb=\'g\';render()">En gros</button></div>'+sb()+'<div class="mut" style="margin-bottom:6px">Montants en FC, '+(g?"par unité en gros":"par pièce")+'.</div><div class="tw"><table><tr><th>N°</th><th>Produit</th><th class="r">Prix d’achat</th><th class="r">Prix de vente</th><th class="r">Bénéfice</th></tr>';
+list().forEach(function(p){var a=g?AG(p):AD(p),v=g?(p.gros||0):(p.detail||0),b=v-a,ok=v>0;
 h+='<tr><td><b>'+code(p)+'</b></td><td>'+esc(p.nom)+'</td><td class="r">'+nf(a)+'</td><td class="r">'+(ok?nf(v):"—")+'</td><td class="r '+(ok?(b>=0?"pos":"neg"):"")+'">'+(ok?nf(b)+(a>0?'<br><span class="mut">'+Math.round(b/a*100)+' %</span>':''):"—")+'</td></tr>'});
 return h+'</table></div></div>'}
-
 var pay=null,SG={d:false,has:false};
 function mkey(d){d=d||new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")}
 function mlabel(m){var p=m.split("-");return new Date(+p[0],+p[1]-1,1).toLocaleDateString("fr-FR",{month:"long",year:"numeric"})}
